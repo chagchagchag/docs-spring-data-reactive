@@ -1,0 +1,142 @@
+## MongoDB 설치시 필요한 도구들 및 설치관련 내용들 정리
+
+## MongoDB 클라우드 인스턴스 
+
+문서 작성을 위한 용도로 사용하는 MongoDB는 [Atlas MongoDB](https://www.mongodb.com/ko-kr/atlas) 를 사용했습니다. 개발PC가 점점 노후화 되어서 팬 소음도 너무 크고 가끔은 컴퓨터가 터질것 같아 선택하게 되었습니다. 데이터베이스 등급은 무료 인스턴스를 선택했습니다.<br/>
+
+![](V:\0.workspace\0.chagchagchag\00.spring-webflux\docs\docs-spring-data-reactive\pages\spring-data-mongodb-reactive\img\mongodb-features\instance.png)
+
+<br/>
+
+
+
+## MongoDB docker
+
+로컬에서만 실행하시거나, testcontainers 를 사용중이시라면, docker-compose 파일을 만들어두고 이것을 읽어들이는게 제일 편하고 빠릅니다. 이런 이유로 이번 문서에서는 docker-compose 파일도 추가해둡니다.<br/>
+
+<br/>
+
+
+
+### single broker
+
+브로커 1기만 갖춰진 docker-compose 파일입니다.
+
+```yaml
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6.0.5
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_DATABASE: foobar
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: 1111
+```
+
+<br/>
+
+
+
+### multi broker
+
+<br/>
+
+
+
+## MongoDB compass
+
+Mongodb Compass
+
+- windows : 
+  - [https://downloads.mongodb.com/compass/mongodb-compass-1.42.3-win32-x64.msi](https://downloads.mongodb.com/compass/mongodb-compass-1.42.3-win32-x64.msi)
+  - 접속 URL : `mongodb+srv://유저명:<password>@[서버주소]/`
+
+- macos : 
+  - https://downloads.mongodb.com/compass/mongodb-compass-1.42.3-darwin-arm64.dmg 
+  - 접속 URL : `mongodb+srv://유저명:<password>@[서버주소]/`
+
+<br/>
+
+
+
+## MongoDB Data Explorer 
+
+설치한 Atlas 인스턴스는 Compass 로도 접속할 수 있겠지만, 브라우저에서 사용가능한 Mongodb Data Explorer 로도 접속가능합니다.
+
+- [https://cloud.mongodb.com](https://cloud.mongodb.com)
+
+<br/>
+
+
+
+## mongoose
+
+몽구스를 이용한 스키마 모델링 방법도 있습니다.
+
+설치
+
+```bash
+yarn add mongooose
+```
+
+<br/>
+
+
+
+> Mongoose 사용법에 대해서는 시간이 되는대로 정리하겠습니다.<br/>
+
+<br/>
+
+
+
+## MongoDB Shell
+
+### 설치 & 환경변수 등록
+
+windows 
+
+- https://downloads.mongodb.com/compass/mongosh-2.0.0-x64.msi 다운로드 & 설치
+- `mongosh "mongodb+srv://[접속주소]" --apiVersion 1 --username [유저명]`
+
+<br/>
+
+macos 
+
+- brew isntall mongosh
+- `mongosh "mongodb+srv://[접속주소]" --apiVersion 1 --username [유저명]`
+- brew install 이 아닌 Manually Install 을 원하신다면 [Install Mongosh](https://www.mongodb.com/docs/mongodb-shell/install/) → Procedure → macOS 를 선택해주세요. 그리고 사용가능한 바이너리를 확인하시려면  [Install from `.zip` File.](https://www.mongodb.com/docs/mongodb-shell/install/#std-label-macos-install-archive) 을 확인해주세요.
+
+<br/>
+
+
+
+MS윈도우즈 사용자의 경우 다운로드 받은 mongosh 파일을 Path 에 추가시킨 후 터미널에서 접근 가능합니다. MacOS 사용자의 경우에도 brew 로 설치하기보다는 별도로 다운로드 받은 디렉터리를 추가하고 싶다면 별도로 바이너리를 다운받으신후 Path 에 추가해주시면 됩니다.<br/>
+
+제 경우에는 MacOS 를 사용할 때에는 `~/username/workspace/bin` 같은 디렉터리에 바이너리를 모아두었었는데, Manually Install 방식이 친절하게 제공되면 Manually Install 로 설치 후에 필요 없어지면 관련 디렉터리를 지워버리는 방식으로 가능하면 이 방식으로 설치를 했습니다. 가끔은 불편하더라도 나중에 관리가 깔끔하게 되려면 오히려 이런 방식이 더 편한 것 같습니다.<br/>
+
+<br/>
+
+### Database 선택, 접근
+
+```bash
+### 데이터베이스 선택
+use [데이터베이스명]
+
+### 현재 사용중인 데이터베이스 확인
+db
+
+### 서버 내의 데이터베이스 리스트
+### 최소 한개의 Document 를 가진 DB만 출력됩니다.
+show dbs
+
+### 컬렉션에 Document insert
+db.[컬렉션명].insertOne({k:v, ...})
+
+### db 내에 도큐먼트 조회
+db.[데이터베이스명].find()
+```
+
+
+

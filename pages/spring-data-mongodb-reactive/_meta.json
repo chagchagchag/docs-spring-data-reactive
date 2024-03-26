@@ -1,0 +1,5 @@
+{
+    "mongodb-features": "MongoDB Features",
+    "mongodb-tools": "MongoDB 접근 도구들",
+    "spring-data-mongodb-reactive": "Spring Data MongoDB Reactive"
+}
