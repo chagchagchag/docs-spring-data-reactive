@@ -1,11 +1,8 @@
 {
   "index": "Introduction",
-  "another": "Another Page",
-  "advanced": "Advanced (A Folder)",
-  "about": {
-    "title": "About",
-    "type": "page"
-  },
+  "spring-data-mongodb-reactive": "Spring Data MongoDB Reactive",
+  "spring-data-r2dbc": "Spring Data R2dbc",
+  "spring-data-redis-reactive": "Spring Data Redis Reactive",
   "contact": {
     "title": "Contact ↗",
     "type": "page",
