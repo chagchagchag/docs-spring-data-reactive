@@ -1,5 +1,6 @@
 {
     "mongodb-features": "MongoDB Features",
     "mongodb-tools": "MongoDB 접근 도구들",
+    "mongodb-reactive-streams-driver": "MongoDB Reactive Streams Driver",
     "spring-data-mongodb-reactive": "Spring Data MongoDB Reactive"
 }
