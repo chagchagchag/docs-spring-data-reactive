@@ -1,4 +1,4 @@
-## MongoCollection, Document, BSON, BSON Codec
+## MongoCollection 의 다양한 연산들
 
 ## 참고자료
 
@@ -13,7 +13,7 @@
 
 
 
-## MongoCollection 의 다양한 연산들
+## 요약
 
 기본 연산
 
@@ -51,7 +51,7 @@ index 연산
 
 
 
-### 기본 연산
+## 기본 연산
 
 - [countDocuments](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#countDocuments(com.mongodb.reactivestreams.client.ClientSession,org.bson.conversions.Bson,com.mongodb.client.model.CountOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html) filter, [CountOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/CountOptions.html) options)
 
@@ -68,7 +68,7 @@ index 연산
 
 
 
-#### countDocuments (...)
+### countDocuments (...)
 
 >  참고
 >
@@ -98,7 +98,7 @@ public interface MongoCollection<TDocument> {
 
 
 
-#### find (...)
+### find (...)
 
 > 참고
 >
@@ -127,7 +127,7 @@ public interface MongoCollection<TDocument> {
 
 
 
-#### aggregate (...)
+### aggregate (...)
 
 > 참고
 >
@@ -166,7 +166,7 @@ public interface MongoCollection<TDocument> {
 
 
 
-#### watch (...)
+### watch (...)
 
 > 참고
 >
@@ -192,7 +192,7 @@ public interface MongoCollection<TDocument> {
 
 
 
-#### bulkWrite (...)
+### bulkWrite (...)
 
 > 참고
 >
@@ -229,7 +229,7 @@ public interface MongoCollection<TDocument> {
 
 
 
-#### insertOne (...)
+### insertOne (...)
 
 > 참고
 >
@@ -275,8 +275,7 @@ public final class InsertOneOptions {
 
 
 
-
-#### insertMany (...)
+### insertMany (...)
 
 > 참고
 >
@@ -323,7 +322,7 @@ public final class InsertManyOptions {
 
 
 
-#### updateOne (...)
+### updateOne (...)
 
 > 참고
 >
@@ -374,7 +373,7 @@ public class UpdateOptions {
 
 
 
-#### updateMany (...)
+### updateMany (...)
 
 > 참고
 >
@@ -425,7 +424,7 @@ public class UpdateOptions {
 
 
 
-### atomic 연산
+## atomic 연산
 
 - [findOneAndDelete](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#findOneAndDelete(com.mongodb.reactivestreams.client.ClientSession,org.bson.conversions.Bson,com.mongodb.client.model.FindOneAndDeleteOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html) filter, [FindOneAndDeleteOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/FindOneAndDeleteOptions.html) options)
 - [findOneAndReplace](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#findOneAndReplace(com.mongodb.reactivestreams.client.ClientSession,org.bson.conversions.Bson,TDocument,com.mongodb.client.model.FindOneAndReplaceOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html) filter, [TDocument](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html) replacement, [FindOneAndReplaceOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/FindOneAndReplaceOptions.html) options)
@@ -433,12 +432,14 @@ public class UpdateOptions {
 
 
 
-#### findOneAndDelete (...)
+### findOneAndDelete (...)
 
 > 참고
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [findOneAndDelete](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#findOneAndDelete(com.mongodb.reactivestreams.client.ClientSession,org.bson.conversions.Bson,com.mongodb.client.model.FindOneAndDeleteOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html) filter, [FindOneAndDeleteOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/FindOneAndDeleteOptions.html) options)
+
+원자적으로 도큐먼트 하나를 찾아낸 후 삭제하는 것을 보장하는 연산입니다.<br/>
 
 ```java
 package com.mongodb.client;
@@ -457,14 +458,42 @@ public interface MongoCollection<TDocument> {
 
 <br/>
 
+FindOneAndDeleteOptions.java 의 내용은 아래와 같습니다. 
+
+sort 옵션, collation 옵션, hint 옵션, comment 옵션을 따로 지정할 수 있습니다.
+
+```java
+package com.mongodb.client.model;
+
+/**
+ * The options to apply to an operation that atomically finds a document and deletes it.
+ */
+public class FindOneAndDeleteOptions {
+    private Bson projection;
+    private Bson sort;
+    private long maxTimeMS;
+    private Collation collation;
+    private Bson hint;
+    private String hintString;
+    private BsonValue comment;
+    private Bson variables;
+    
+    // ...
+}
+```
+
+<br/>
 
 
-#### findOneAndReplace (...)
+
+### findOneAndReplace (...)
 
 > 참고
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [findOneAndReplace](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#findOneAndReplace(com.mongodb.reactivestreams.client.ClientSession,org.bson.conversions.Bson,TDocument,com.mongodb.client.model.FindOneAndReplaceOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html) filter, [TDocument](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html) replacement, [FindOneAndReplaceOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/FindOneAndReplaceOptions.html) options)
+
+filter 에 해당하는 하나의 도큐먼트를 찾아서 원자적으로 Replace 하는 것이 보장되는 함수입니다.
 
 ```java
 package com.mongodb.client;
@@ -480,20 +509,46 @@ public interface MongoCollection<TDocument> {
 }
 ```
 
+<br/>
 
+
+
+[FindOneAndReplaceOptions](https://github.com/mongodb/mongo-java-driver/blob/master/driver-core/src/main/com/mongodb/client/model/FindOneAndReplaceOptions.java) 의 코드는 아래와 같습니다. hint, sort, upsert 여부, validation 을 건너뛸지에 대한 여부인 bypassDocumentValidation, collation, hint 를 지정할 수 있음을 확인 가능합니다.
+
+```java
+package com.mongodb.client.model;
+
+/**
+ * The options to apply to an operation that atomically finds a document and replaces it.
+ */
+public class FindOneAndReplaceOptions {
+    private Bson projection;
+    private Bson sort;
+    private boolean upsert;
+    private ReturnDocument returnDocument = ReturnDocument.BEFORE;
+    private long maxTimeMS;
+    private Boolean bypassDocumentValidation;
+    private Collation collation;
+    private Bson hint;
+    private String hintString;
+    private BsonValue comment;
+    private Bson variables;
+    // ...
+}
+```
 
 <br/>
 
 
 
-
-
-#### findOneAndUpdate(...)
+### findOneAndUpdate(...)
 
 > 참고
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [findOneAndUpdate](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#findOneAndUpdate(com.mongodb.reactivestreams.client.ClientSession,org.bson.conversions.Bson,java.util.List,com.mongodb.client.model.FindOneAndUpdateOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html) filter, [List](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html)\<? extends [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html)\> update, [FindOneAndUpdateOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/FindOneAndUpdateOptions.html) options)
+
+filter 에 해당하는 하나의 도큐먼트를 찾아서 원자적으로 Update 하는 것이 보장되는 함수입니다.
 
 ```java
 package com.mongodb.client;
@@ -513,7 +568,40 @@ public interface MongoCollection<TDocument> {
 
 
 
-### index 연산
+[FindOneAndUpdateOptions.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-core/src/main/com/mongodb/client/model/FindOneAndUpdateOptions.java) 의 코드는 아래와 같습니다. upsert 여부, sort 를 어떻게할지, validation 을 skip 할지에 대한 옵션인 bypassDocumentValidation, collation, hint 를 옵션으로 설정할 수 있음을 확인 가능합니다.
+
+```java
+package com.mongodb.client.model;
+
+// ...
+
+/**
+ * The options to apply to an operation that atomically finds a document and updates it.
+ */
+public class FindOneAndUpdateOptions {
+    private Bson projection;
+    private Bson sort;
+    private boolean upsert;
+    private ReturnDocument returnDocument = ReturnDocument.BEFORE;
+    private long maxTimeMS;
+    private Boolean bypassDocumentValidation;
+    private Collation collation;
+    private List<? extends Bson> arrayFilters;
+    private Bson hint;
+    private String hintString;
+    private BsonValue comment;
+    private Bson variables;
+    // ...
+}
+```
+
+<br/>
+
+
+
+## index 연산
+
+컬렉션의 특정 필드들에 대해 insdex 생성, 조회, 삭제 기능을 제공합니다. 
 
 - [createIndexes](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#createIndexes(com.mongodb.reactivestreams.client.ClientSession,java.util.List,com.mongodb.client.model.CreateIndexOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, List\<[IndexModel](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/IndexModel.html)\> indexes, [CreateIndexOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/CreateIndexOptions.html) createIndexOptions)
 - [listIndexes](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#listIndexes(com.mongodb.reactivestreams.client.ClientSession))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession)
@@ -523,14 +611,14 @@ public interface MongoCollection<TDocument> {
 
 
 
-
-
-#### createIndexes (...)
+### createIndexes (...)
 
 > 참고
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [createIndexes](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#createIndexes(com.mongodb.reactivestreams.client.ClientSession,java.util.List,com.mongodb.client.model.CreateIndexOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, List\<[IndexModel](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/IndexModel.html)\> indexes, [CreateIndexOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/CreateIndexOptions.html) createIndexOptions)
+
+인자로 전달된 IndexModel 리스트에 대해 여러개의 인덱스들을 생성하는 역할을 하는 메서드입니다.
 
 
 ```java
@@ -546,22 +634,43 @@ public interface MongoCollection<TDocument> {
 }
 ```
 
+<br/>
 
+
+
+[CreateIndexOptions.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-core/src/main/com/mongodb/client/model/CreateIndexOptions.java) 의 내용은 아래와 같습니다.
+
+- maxTimeMS : 연산 수행시 최대 몇 ms 만큼을 기다릴지를 결정합니다.
+- commitQuorum : 커밋 시에 여러 브로커 들 간에 투표시 어떻게 할지에 대한 옵션입니다. Quorum은 분산 시스템에서 데이터 일관성과 가용성을 보장하기 위한 개념 중 하나입니다.
+
+```java
+package com.mongodb.client.model;
+
+/**
+ * The options to apply to the command when creating indexes.
+ *
+ * @mongodb.driver.manual reference/command/createIndexes Index options
+ * @since 3.6
+ */
+public class CreateIndexOptions {
+    private long maxTimeMS;
+    private CreateIndexCommitQuorum commitQuorum;
+    // ...
+}
+```
 
 <br/>
 
 
 
-
-
-#### listIndexes (...)
+### listIndexes (...)
 
 > 참고
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [listIndexes](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#listIndexes(com.mongodb.reactivestreams.client.ClientSession))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession)
 
-
+컬렉션에 존재하는 모든 index 들을 조회하는 메서드입니다.
 
 ```java
 package com.mongodb.client;
@@ -576,22 +685,18 @@ public interface MongoCollection<TDocument> {
 }
 ```
 
-
-
 <br/>
 
 
 
-
-
-#### dropIndex (...)
+### dropIndex (...)
 
 > 참고
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [dropIndex](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#dropIndex(com.mongodb.reactivestreams.client.ClientSession,java.lang.String,com.mongodb.client.model.DropIndexOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [String](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/String.html) indexName, [DropIndexOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/DropIndexOptions.html) dropIndexOptions)
 
-<br/>
+컬렉션에서 indexName 에 해당하는 인덱스를 DROP 하는 역할의 메서드 입니다.
 
 ```java
 package com.mongodb.client;
@@ -610,15 +715,26 @@ public interface MongoCollection<TDocument> {
 
 
 
-## Document
+[DropIndexOptions.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-core/src/main/com/mongodb/client/model/DropIndexOptions.java) 의 내용은 아래와 같습니다.
+
+```java
+package com.mongodb.client.model;
+// ...
+
+/**
+ * The options to apply to the command when dropping indexes.
+ */
+public class DropIndexOptions {
+    private long maxTimeMS;
+    // ...
+}
+```
 
 <br/>
 
 
 
-## BSON, BSON Codec
 
-<br/>
 
 
 
