@@ -162,7 +162,7 @@ public interface MongoCollection<TDocument> {
 - skip, limit, lookup
 - facet, graphLookup, group, unionWith, unwind, out, merge, replaceRoot, replaceWith, sample
 
-
+<br/>
 
 
 
@@ -172,8 +172,9 @@ public interface MongoCollection<TDocument> {
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [watch](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#watch(com.mongodb.reactivestreams.client.ClientSession,java.util.List))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [List](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html)\<? extends [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html)\> pipeline)
+> - [ChangeStreamPublisher](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/ChangeStreamPublisher.java)
 
-
+컬렉션에 대한 변경사항 발생시 변경사항에 대한 Stream (Change Stream) 을 만들어냅니다.
 
 ```java
 package com.mongodb.client;
@@ -187,7 +188,7 @@ public interface MongoCollection<TDocument> {
 }
 ```
 
-
+[ChangeStreamPublisher](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/ChangeStreamPublisher.java) 타입을 반환합니다. 이렇게 만들어진 ChangeStream 은 subscribe 시에 onNext 이벤트를 통해 읽어들여집니다.<br/>
 
 
 
@@ -197,8 +198,10 @@ public interface MongoCollection<TDocument> {
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [bulkWrite](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#bulkWrite(com.mongodb.reactivestreams.client.ClientSession,java.util.List,com.mongodb.client.model.BulkWriteOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [List](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html)\<? extends [WriteModel](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/WriteModel.html)\<? extends [TDocument](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html)\>\> requests, [BulkWriteOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/BulkWriteOptions.html) options)
+> - [BulkWriteOptions](https://github.com/mongodb/mongo-java-driver/blob/master/driver-core/src/main/com/mongodb/client/model/BulkWriteOptions.java)
+> - [WriteModel](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/WriteModel.html)
 
-
+insert, updates, replaces, delete 연산을 한번에 모아서 bulk 연산을 수행합니다.<br/>
 
 ```java
 package com.mongodb.client;
@@ -213,7 +216,16 @@ public interface MongoCollection<TDocument> {
 }
 ```
 
+입력인자를 보면 [WriteModel](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/WriteModel.html) 이 보입니다. 이 WriteModel 은 interface 이며 구체타입 들은 아래와 같습니다.
 
+- [DeleteManyModel](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/DeleteManyModel.html) : 조건을 만족하는 모든 Document 를 찾아서 모두 삭제할 수 있도록 표현된 Model 객체입니다.
+- [DeleteOneModel](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/DeleteOneModel.html) : 조건을 만족하는 하나의 Document 를 찾아서 삭제할 수 있도록 표현된 Model 객체입니다.
+- [InsertOneModel](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/InsertOneModel.html) : 하나의 Document 를 Inert 할 수 있도록 표현된 Model 객체입니다.
+- [ReplaceOneModel](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/ReplaceOneModel.html) : 조건을 만족하는 하나의 Document 를 찾아서 Replace 할 수 있도록 표현된 Model 객체입니다.
+- [UpdateManyModel](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/UpdateManyModel.html) : 조건을 만족하는 2개 이상의 Document 를 찾아서 수정할 수 있도록 표현된 Model 객체입니다.
+- [UpdateOneModel](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/UpdateOneModel.html) : 조건을 만족하는 하나의 Document 를 찾아서 수정할 수 있도록 표현된 Model 객체입니다.
+
+<br/>
 
 
 
@@ -223,6 +235,11 @@ public interface MongoCollection<TDocument> {
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [insertOne](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#insertOne(com.mongodb.reactivestreams.client.ClientSession,TDocument,com.mongodb.client.model.InsertOneOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [TDocument](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html) document, [InsertOneOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/InsertOneOptions.html) options)
+> - [InsertOneOptions](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/InsertOneOptions.html), [InsertOneOptions.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-core/src/main/com/mongodb/client/model/InsertOneOptions.java)
+
+하나의 document 를 insert 할 수 있도록 MongoCollection 클래스에서 지원되는 메서드입니다.<br/>
+
+만약 id 와 같은 식별자가 누락되어 있다면, mongodb-java-driver 가 자동으로 생성합니다.
 
 
 ```java
@@ -238,7 +255,23 @@ public interface MongoCollection<TDocument> {
 }
 ```
 
+<br/>
 
+[InsertOneOptions](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/InsertOneOptions.html) 가 보입니다. InsertOneOptions 는 validation 을 우회할 지 결정하는 필드를가지고 있습니다. 
+
+```java
+package com.mongodb.client.model;
+/**
+ * The options to apply to an operation that inserts a single document into a collection.
+ */
+public final class InsertOneOptions {
+    private Boolean bypassDocumentValidation;
+    private BsonValue comment;
+    // ... 
+}
+```
+
+<br/>
 
 
 
@@ -249,6 +282,9 @@ public interface MongoCollection<TDocument> {
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [insertMany](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#insertMany(com.mongodb.reactivestreams.client.ClientSession,java.util.List,com.mongodb.client.model.InsertManyOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [List](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html)\<? extends [TDocument](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html)\> documents, [InsertManyOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/InsertManyOptions.html) options)
+> - [InsertManyOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/InsertManyOptions.html), [InsertManyOptions.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-core/src/main/com/mongodb/client/model/InsertManyOptions.java)
+
+여러개의 Document 를 insert 할 수 있도록 제공되는 메서드입니다.
 
 
 ```java
@@ -268,6 +304,23 @@ public interface MongoCollection<TDocument> {
 
 <br/>
 
+[InsertManyOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/InsertManyOptions.html) 가 보입니다. InsertManyOptions 는 validation 을 우회할 지, insert 순서를 보장할지를 결정하는 필드들을 가지고 있습니다.
+
+```java
+package com.mongodb.client.model;
+/**
+ * The options to apply to an operation that inserts multiple documents into a collection.
+ */
+public final class InsertManyOptions {
+    private boolean ordered = true;
+    private Boolean bypassDocumentValidation;
+    private BsonValue comment;
+    // ...
+}
+```
+
+<br/>
+
 
 
 #### updateOne (...)
@@ -276,6 +329,9 @@ public interface MongoCollection<TDocument> {
 >
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [updateOne](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#updateOne(com.mongodb.reactivestreams.client.ClientSession,org.bson.conversions.Bson,java.util.List,com.mongodb.client.model.UpdateOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html) filter, [List](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html)\<? extends [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html)\> update, [UpdateOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/UpdateOptions.html) options)
+> - [UpdateOptions](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/UpdateOptions.html), [UpdateOptions.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-core/src/main/com/mongodb/client/model/UpdateOptions.java)
+
+filter 를 통해 찾아지는 도큐먼트 1개를 update 하는 연산이며, UpdateOptions 를 통해서 upsert, hint, collation, variables 를 명시할 수 있습니다.
 
 
 ```java
@@ -291,9 +347,28 @@ public interface MongoCollection<TDocument> {
 }
 ```
 
+<br/>
 
+[UpdateOptions](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/UpdateOptions.html) 가 보입니다. UpdateOptions 에는 아래와 같이 upsert, hint, collation, variables 등을 지정할 수 있는 필드들이 있습니다.
 
+```java
+package com.mongodb.client.model;
 
+/**
+ * The options to apply when updating documents.
+ */
+public class UpdateOptions {
+    private boolean upsert;
+    private Boolean bypassDocumentValidation;
+    private Collation collation;
+    private List<? extends Bson> arrayFilters;
+    private Bson hint;
+    private String hintString;
+    private BsonValue comment;
+    private Bson variables;
+    // ...
+}
+```
 
 <br/>
 
@@ -306,6 +381,8 @@ public interface MongoCollection<TDocument> {
 > - [MongoCollection.java](https://github.com/mongodb/mongo-java-driver/blob/master/driver-reactive-streams/src/main/com/mongodb/reactivestreams/client/MongoCollection.java)
 > - [updateMany](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/MongoCollection.html#updateMany(com.mongodb.reactivestreams.client.ClientSession,org.bson.conversions.Bson,java.util.List,com.mongodb.client.model.UpdateOptions))([ClientSession](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-reactivestreams/com/mongodb/reactivestreams/client/ClientSession.html) clientSession, [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html) filter, [List](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html)\<? extends [Bson](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/conversions/Bson.html)\> update, [UpdateOptions](http://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/UpdateOptions.html) options)
 
+filter 를 통해 찾아지는 1개 또는 두개 이상의 모든 도큐먼트들을 update 하는 연산이며, UpdateOptions 를 통해서 upsert, hint, collation, variables 를 명시할 수 있습니다.
+
 ```java
 package com.mongodb.client;
 // ...
@@ -316,6 +393,31 @@ public interface MongoCollection<TDocument> {
      * ...
      */
     Publisher<UpdateResult> updateMany(ClientSession clientSession, Bson filter, Bson update, UpdateOptions updateOptions);
+}
+```
+
+
+
+<br/>
+
+[UpdateOptions](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/mongodb-driver-core/com/mongodb/client/model/UpdateOptions.html) 가 보입니다. UpdateOptions 에는 아래와 같이 upsert, hint, collation, variables 등을 지정할 수 있는 필드들이 있습니다.
+
+```java
+package com.mongodb.client.model;
+
+/**
+ * The options to apply when updating documents.
+ */
+public class UpdateOptions {
+    private boolean upsert;
+    private Boolean bypassDocumentValidation;
+    private Collation collation;
+    private List<? extends Bson> arrayFilters;
+    private Bson hint;
+    private String hintString;
+    private BsonValue comment;
+    private Bson variables;
+    // ...
 }
 ```
 
