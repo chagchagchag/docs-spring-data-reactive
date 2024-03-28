@@ -2,6 +2,7 @@
     "mongodb-features": "MongoDB Features",
     "mongodb-tools": "MongoDB 접근 도구들",
     "mongodb-reactive-streams-driver": "MongoDB Reactive Streams Driver",
-    "mongo-collection-document-bson-bson-codec": "MongoClient, Document, BSON, BSON Codec",
+    "mongo-collection-functions": "MongoCollection 의 다양한 연산들",
+    "document-bson-bson-codec": "Document, BSON, BSON Codec",
     "spring-data-mongodb-reactive": "Spring Data MongoDB Reactive"
 }
