@@ -54,6 +54,14 @@ mongodb.github.io/mongo-java-driver
 
 ## BSON Codec
 
+예를 들면, MongoDB 로부터 Date 타입으로 전달되는 값을 LocalDate 또는 LocalDateTime 으로 변환해야 할 때가 있습니다. 또는 LocalDate, LocalDateTime 타입을 MongoDB driver 의 bson 라이브러리에서 지원하는 타입으로 변환해야 하는 경우가 있습니다.<br/>
+
+이런 경우에 보통 기본제공되는 Provider 를 확장(extends) 해서 CodecProvider, Codec 을 직접 정의해서 사용합니다. 이번 섹션에서는 mongodb driver 에서 제공하는 bson 라이브러리의 코덱에는 어떤 것들이 있는지 정리해봅니다.<br/>
+
+<br/>
+
+
+
 ### MongoClientSettings.DEFAULT\_CODEC\_REGISTRY
 
 MongoClientSettings 클래스 내에서는 기본적으로 많이 사용되는 Codec 들의 Registry 를 CodecRegistry 타입의 `DEFAULT_CODEC_REGISTRY` 라는 필드를 통해 제공합니다.
@@ -97,7 +105,7 @@ public final class MongoClientSettings {
 
 <br/>
 
-#### Java 타입 코덱 프로바이더
+### Java 타입 코덱 프로바이더
 
 - ValueCodecProvider (Java)
   - Java 타입으로 encode/decode 를 위한 Codec 객체에 대한 프로바이더입니다.
@@ -135,7 +143,9 @@ public final class MongoClientSettings {
 
 <br/>
 
-#### BSON 타입 코덱 프로바이더
+
+
+### BSON 타입 코덱 프로바이더
 
 주로 mongodb-driver 에서 구현해둔 프로바이더 들입니다. 드라이버 계층에서 mongodb 에서 가져온 bson 데이터를 BSON 라이브러리에서 지원하는 BSON 타입으로 변환하는데에 사용됩니다. 응용 계층 프로그래머가 직접 접근할 일은 드뭅니다. 
 
