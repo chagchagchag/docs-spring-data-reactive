@@ -8,5 +8,7 @@
     "spring-data-object-mapping-and-creation": "Spring Data Reactive 의 객채생성 방식과 매핑방식",
     "reactive-mongo-template": "ReactiveMongoTemplate",
     "reactive-mongo-operation": "ReactiveMongoOperation",
-    "reactive-mongo-repository": "ReactiveMongoRepository"
+    "reactive-mongo-repository": "ReactiveMongoRepository",
+    "query-methods": "Query 메서드",
+    "transactional": "@Transactional"
 }
