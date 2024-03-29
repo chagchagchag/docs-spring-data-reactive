@@ -1,10 +1,120 @@
 ## ReactiveMongoTemplate
 
+ReactiveMongoTemplate 은 ReactiveMongoOperations, ApplicationContextAware 를 implements 하는 클래스입니다.
+
+![](./img/reactive-mongo-template/hierarchy.png)
 
 
-## ReactiveMongoTemplate
+
+<br/>
+
+ReactiveMongoTemplate 은 MongoConverter, ReactiveMongoDatabaseFactory 를 결합해서 하나의 ReactiveMongoTemplate 객체를 생성하는 방식으로 객체를 생성해서 @Bean 으로 등록하는 경우가 많습니다. <br/>
+
+보통 ReactiveMongoTemplate 을 사용하면 MongoDB의 쿼리들을 BSON 형태로 굉장히 다양하게 제공되는 유용한 쿼리를 할수 있고 PojoCodec, CustomCodec 등을 등록하지 않더라도 메소드 체이닝을 통해서 결과값을 Entity 형태로 돌려받을 수 있습니다.<br/>
+
+ReactiveMongoTemplate 은 쿼리를 통해서 내부적으로 데이터를 변환해서 리턴하려면 ReactiveMongoTemplate 내부에서 MongoCollection 에 접근을 하게 됩니다. 이때 ReactiveMongoDatabaseFactory 객체의 getMongoDatabase() 를 통해서 MongoDatabase 를 얻어오고 MongoCollection 에 접근하게 됩니다.<br/>
 
 
 
-## MongoConverter
+ReactiveMongoOperations 는 굉장히 다양한 연산들을 지원하는 interface 이며, 다음 문서에서 ReactiveMongoOperations 에 대해 자세히 정리합니다.<br/>
+
+<br/>
+
+
+
+## 생성자
+
+> 참고 : [ReactiveMongoTemplate.java](https://github.com/spring-projects/spring-data-mongodb/blob/main/spring-data-mongodb/src/main/java/org/springframework/data/mongodb/core/ReactiveMongoTemplate.java)
+
+ReactiveMongoTemplate 의 생성자는 아래와 같이 4 종류가 있습니다.
+
+```java
+package org.springframework.data.mongodb.core;
+
+// ...
+
+public class ReactiveMongoTemplate implements ReactiveMongoOperations, ApplicationContextAware {
+    public ReactiveMongoTemplate(MongoClient mongoClient, String databaseName) {
+		// ...
+	}
+    
+    public ReactiveMongoTemplate(ReactiveMongoDatabaseFactory mongoDatabaseFactory) {
+		// ...
+	}
+    
+    public ReactiveMongoTemplate(ReactiveMongoDatabaseFactory mongoDatabaseFactory,
+			@Nullable MongoConverter mongoConverter) {
+		// ...
+	}
+    
+    public ReactiveMongoTemplate(ReactiveMongoDatabaseFactory mongoDatabaseFactory,
+			@Nullable MongoConverter mongoConverter, Consumer<Throwable> subscriptionExceptionHandler) {
+        // ...
+    }
+}
+```
+
+
+
+첫번째 생성자인 `ReactiveMongoTemplate(MongoClient mongoClient, String databaseName)` 을 사용하면 단순한 ReactiveMongoTemplate  객체를 생성하는 것이 가능합니다.<br/>
+
+일반적으로는 두번째 또는 세번째 생성자처럼 ReactiveMongoDatabaseFactory 또는 MongoConverter 를 받아서 ReactiveMongoTemplate 을 생성해서 @Bean 으로 등록하는 경우가 많습니다.<br/>
+
+<br/>
+
+
+
+## Configuration
+
+간단한 ReactiveMongoTemplate 을 설정 코드는 아래와 같습니다. 설명은 생략하겠습니다.<br/>
+
+```java
+@Configuration
+public class MongoReactiveConfiguration{
+    @Value("${spring.data.mongodb.uri}")
+    private String mongoUri;
+    
+    @Bean
+    public MongoClient reactiveMongoClient() {
+        return MongoClients.create(mongoUri);
+    }
+    
+    @Bean
+    public SimpleReactiveMongoDataFactory reactiveMongoDatabaseFactory(
+        MongoProperties properties, MongoClient mongoClient
+    ){
+        Spring database = properties.getMongoClientDatabase();
+        return new SimpleReactiveMongoDatabaseFactory(mongoClient, database);
+    }
+    
+    @Bean
+    public ReactiveMongoTransactionManager transactionManager(ReactiveMongoDatabaseFactory dbFactory) {
+        return new ReactiveMongoTransactionManager(dbFactory);
+    }
+    
+    @Bean
+    public MappingMongoConverter mappingMongoConverter(MongoMappingContext mongoMappingContext) {
+        return new MappingMongoConverter(mongoMappingContext);
+    }
+    
+    // 여기
+    @Bean
+    public ReactiveMongoTemplate reactiveMongoTemplate(
+        ReactiveMongoDatabaseFactory reactiveMongoDatabaseFactory,
+        MongoConverter mongoConverter
+    ) {
+        return new ReactiveMongoTemplate(reactiveMongoDatabaseFactory, mongoConverter);
+    }
+    
+    private String getDatabaseNameFromUri() {
+        return mongoUri.substring(mongoUri.lastIndexOf("/") + 1);
+    }
+}
+```
+
+<br/>
+
+
+
+
 
