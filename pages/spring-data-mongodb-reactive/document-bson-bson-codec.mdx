@@ -2,18 +2,44 @@
 
 ## 참고자료
 
+mongodb.com/docs/manual/reference/bson-types/
+
 - [MongoDB Docs - BSON Types](https://www.mongodb.com/docs/manual/reference/bson-types/)
 
 mongodb.github.io/mongo-java-driver
 
 - [CodecProvider](https://mongodb.github.io/mongo-java-driver/5.0/apidocs/bson/org/bson/codecs/configuration/CodecProvider.html)
-- 
+- [Quick Start Pojo](https://mongodb.github.io/mongo-java-driver/4.9/driver-reactive/getting-started/quick-start-pojo/)
+- [org.bson.Document](https://github.com/mongodb/mongo-java-driver/blob/master/bson/src/main/org/bson/Document.java)
 
 <br/>
 
 
 
 ## Document
+
+BSON 에서 제공하는 타입에는 Document 라는 타입이 있습니다. 아래와 같이 MongoCollection 에 query 를 통해 조회한 결과는 `org.bson.Document` 로 변환됩니다.<br/>
+
+![](./img/document-bson-bson-codec/what-is-bson-document-type.png)
+
+<br/>
+
+이  org.bson.[Document](https://github.com/mongodb/mongo-java-driver/blob/master/bson/src/main/org/bson/Document.java) 타입은 bson library 에 속하는 타입입니다. 
+
+```java
+package org.bson;
+
+// ...
+public class Document implements Map<String, Object>, Serializable, Bson {
+    private static final Codec<Document> DEFAULT_CODEC =
+            withUuidRepresentation(fromProviders(asList(new ValueCodecProvider(),
+                    new CollectionCodecProvider(), new IterableCodecProvider(),
+                    new BsonValueCodecProvider(), new DocumentCodecProvider(), new MapCodecProvider())), UuidRepresentation.STANDARD)
+                    .get(Document.class);
+    // ...
+    
+}
+```
 
 <br/>
 
@@ -194,7 +220,213 @@ public final class MongoClientSettings {
 
 
 
-## 예제
+## 예제 - ValueCodecProvider
+
+이번에 살펴볼 예제는 Mongodb Cloud 내의 `helloworld.person` 이라는 컬렉션을 획득하고, 도큐먼트를 조회해오는데, 이 도큐먼트의 BSON 데이터를 읽어들여서 Java 의 값으로 변환하는 예제입니다. 그리고 Subscribe 는 reactivestreams 의 Subscriber 를 이용해서 subscribe 하는 예제입니다.<br/>
+
+예제는 공식 도큐먼트의 [Quick Start Pojo](https://mongodb.github.io/mongo-java-driver/4.9/driver-reactive/getting-started/quick-start-pojo/) 문서를 참고해서 작성한 예제입니다.<br/>
+
+<br/>
+
+자세한 설명은 생략하도록 하겠습니다.<br/>
+
+<br/>
+
+
+
+### Person.java
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.codec.valueobject;
+
+import java.math.BigDecimal;
+import java.util.Objects;
+import lombok.Getter;
+import lombok.Setter;
+import org.bson.codecs.pojo.annotations.BsonId;
+import org.bson.codecs.pojo.annotations.BsonProperty;
+import org.bson.types.ObjectId;
+
+@Getter @Setter
+public class Person {
+  @BsonId
+  @BsonProperty(value = "_id")
+  private ObjectId id;
+  @BsonProperty(value = "name")
+  private String name;
+  @BsonProperty(value = "salary")
+  private BigDecimal salary;
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, name, salary);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if(this == obj) return true;
+    if(obj == null || getClass() != obj.getClass()) return false;
+    Person p = (Person) obj;
+    return Objects.equals(id, p.getId())
+        && Objects.equals(salary, p.getSalary())
+        && Objects.equals(name, p.getName());
+  }
+
+  @Override
+  public String toString() {
+    return "Person{" +
+        "id=" + id +
+        ", name='" + name + '\'' +
+        ", salary=" + salary +
+        '}';
+  }
+}
+```
+
+<br/>
+
+### CustomValueCodecProvider
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.codec;
+
+import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.util.List;
+import org.bson.BsonReader;
+import org.bson.BsonWriter;
+import org.bson.codecs.Codec;
+import org.bson.codecs.DecoderContext;
+import org.bson.codecs.EncoderContext;
+import org.bson.codecs.ValueCodecProvider;
+import org.bson.codecs.configuration.CodecRegistry;
+
+public class CustomValueCodecProvider extends ValueCodecProvider {
+  @Override
+  public <T> Codec<T> get(Class<T> clazz, List<Type> typeArguments, CodecRegistry registry) {
+    if(clazz == BigDecimal.class){
+      return new Codec<T>(){
+        @Override
+        public void encode(BsonWriter bsonWriter, T value, EncoderContext encoderContext) {
+          bsonWriter.writeString(((BigDecimal) value).toString());
+        }
+
+        @Override
+        public Class<T> getEncoderClass() {
+          return (Class<T>) BigDecimal.class;
+        }
+
+        @Override
+        public T decode(BsonReader bsonReader, DecoderContext decoderContext) {
+          return (T) new BigDecimal(bsonReader.readString());
+        }
+      };
+    }
+    return null;
+  }
+}
+```
+
+<br/>
+
+### CodecExample.java
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.codec;
+
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.reactivestreams.client.MongoClient;
+import com.mongodb.reactivestreams.client.MongoClients;
+import com.mongodb.reactivestreams.client.MongoCollection;
+import com.mongodb.reactivestreams.client.MongoDatabase;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.codec.valueobject.Person;
+import lombok.extern.slf4j.Slf4j;
+import org.bson.codecs.configuration.CodecRegistries;
+import org.bson.codecs.configuration.CodecRegistry;
+import org.bson.codecs.pojo.PojoCodecProvider;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+
+@Slf4j
+public class CodecExample {
+  public static void main(String[] args) {
+    CodecRegistry codecRegistry = CodecRegistries.fromRegistries(
+        MongoClientSettings.getDefaultCodecRegistry(),
+        CodecRegistries.fromProviders(new CustomValueCodecProvider()),
+        CodecRegistries.fromProviders(PojoCodecProvider.builder().automatic(true).build())
+    );
+
+    var connectionString = new ConnectionString(
+        "mongodb+srv://[계정명]:[비밀번호]@[Mongo Cloud 접속 주소]/"
+    );
+
+    MongoClient mongoClient = MongoClients.create(
+        MongoClientSettings.builder()
+            .codecRegistry(codecRegistry)
+            .applyConnectionString(connectionString)
+            .build()
+    );
+
+    // Mongodb 데이터베이스 접속, 컬렉션 조회
+    MongoDatabase database = mongoClient.getDatabase("helloworld");
+    MongoCollection<Person> collection = database.getCollection("person", Person.class);
+
+    // 도큐먼트 조회
+    collection.find().first()
+            .subscribe(newSubscriber(1));
+  }
+
+  public static Subscriber<Person> newSubscriber(int requestSize){
+    return new Subscriber<Person>() {
+      @Override
+      public void onSubscribe(Subscription subscription) {
+        subscription.request(requestSize);
+      }
+
+      @Override
+      public void onNext(Person item) {
+        log.info("item _id = " + item.getId());
+        log.info("item name = " + item.getName());
+        log.info("item salary = " + item.getSalary());
+      }
+
+      @Override
+      public void onError(Throwable throwable) {
+        throwable.printStackTrace();
+      }
+
+      @Override
+      public void onComplete() {
+        System.out.println("complete");
+      }
+    };
+  }
+}
+```
+
+<br/>
+
+
+
+### 출력결과
+
+```plain
+// ... 
+
+13:37:13.545 [async-channel-group-0-handler-executor] INFO io...examples.codec.CodecExample -- item _id = 6606279491b652a088e56be5
+13:37:13.546 [async-channel-group-0-handler-executor] INFO io...examples.codec.CodecExample -- item name = 홍길동
+13:37:13.546 [async-channel-group-0-handler-executor] INFO io...examples.codec.CodecExample -- item salary = 10000000000
+complete
+
+// ...
+```
+
+
+
+
+
+
 
 
 
