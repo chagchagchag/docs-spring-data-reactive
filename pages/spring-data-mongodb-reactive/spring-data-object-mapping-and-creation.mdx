@@ -7,46 +7,55 @@
 아래의 ReactiveMongoTemplate 을 Bean 으로 설정하는 코드를 보면, MongoConverter 와 ReactiveMongoDatabaseFactory 를 주입받아서 ReactiveMongoTemplate 객체를 생성한다는 사실을 알 수 있습니다.
 
 ```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.config;
+
+import com.mongodb.reactivestreams.client.MongoClient;
+import com.mongodb.reactivestreams.client.MongoClients;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.mongo.MongoProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
+import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.SimpleReactiveMongoDatabaseFactory;
+import org.springframework.data.mongodb.core.convert.MongoConverter;
+
 @Configuration
-public class MongoReactiveConfiguration{
-    @Value("${spring.data.mongodb.uri}")
-    private String mongoUri;
-    
-    @Bean
-    public MongoClient reactiveMongoClient() {
-        return MongoClients.create(mongoUri);
-    }
-    
-    @Bean
-    public SimpleReactiveMongoDataFactory reactiveMongoDatabaseFactory(
-        MongoProperties properties, MongoClient mongoClient
-    ){
-        Spring database = properties.getMongoClientDatabase();
-        return new SimpleReactiveMongoDatabaseFactory(mongoClient, database);
-    }
-    
-    @Bean
-    public ReactiveMongoTransactionManager transactionManager(ReactiveMongoDatabaseFactory dbFactory) {
-        return new ReactiveMongoTransactionManager(dbFactory);
-    }
-    
-    @Bean
-    public MappingMongoConverter mappingMongoConverter(MongoMappingContext mongoMappingContext) {
-        return new MappingMongoConverter(mongoMappingContext);
-    }
-    
-    // 여기
-    @Bean
-    public ReactiveMongoTemplate reactiveMongoTemplate(
-        ReactiveMongoDatabaseFactory reactiveMongoDatabaseFactory,
-        MongoConverter mongoConverter
-    ) {
-        return new ReactiveMongoTemplate(reactiveMongoDatabaseFactory, mongoConverter);
-    }
-    
-    private String getDatabaseNameFromUri() {
-        return mongoUri.substring(mongoUri.lastIndexOf("/") + 1);
-    }
+public class MongoReactiveConfiguration {
+  @Value("${spring.data.mongodb.uri}")
+  private String mongoUri;
+
+  @Bean
+  public MongoClient reactiveMongoClient(){
+    return MongoClients.create(mongoUri);
+  }
+
+  @Bean
+  public ReactiveMongoTransactionManager transactionManager(
+      ReactiveMongoDatabaseFactory dbFactory
+  ){
+    return new ReactiveMongoTransactionManager(dbFactory);
+  }
+
+  @Bean(name = "bookReactiveMongoDatabaseFactory")
+  public SimpleReactiveMongoDatabaseFactory bookReactiveMongoDatabaseFactory(
+      MongoProperties mongoProperties,
+      MongoClient mongoClient
+  ){
+    // 이렇게 할 수도 있지만, 하나의 프로젝트에서 여러 몽고 database 를 사용할 수 있으므로 비활성화
+//    String database = mongoProperties.getMongoClientDatabase();
+    final String database = "book";
+    return new SimpleReactiveMongoDatabaseFactory(mongoClient, database);
+  }
+
+  @Bean(name = "bookReactiveMongoTemplate")
+  public ReactiveMongoTemplate bookReactiveMongoTemplate(
+      ReactiveMongoDatabaseFactory bookReactiveMongoDatabaseFactory,
+      MongoConverter mongoConverter
+  ){
+    return new ReactiveMongoTemplate(bookReactiveMongoDatabaseFactory, mongoConverter);
+  }
 }
 ```
 
@@ -55,6 +64,8 @@ public class MongoReactiveConfiguration{
 
 
 이번 문서에서는 위의 코드에서 처럼 ReactiveMongoTemplate 객체를 만들기 위해 필요한 MongoConverter 를 알아봅니다. MongoConverter 는 객체를 BSON → Java 객체, Java 객체 → BSON 으로 변환해주는 역할을 수행합니다.<br/>
+
+ReactiveMongoTemplate 객체는 생성자가 여러 종류이며, 생성자에 항상 반드시 MongoConverter 객체가 필요한 것은 아닙니다. 위의 코드는 예제를 위해 MongoConverter 를 주입받아서 생성하는 예제를 추가했습니다.<br/>
 
 <br/>
 
