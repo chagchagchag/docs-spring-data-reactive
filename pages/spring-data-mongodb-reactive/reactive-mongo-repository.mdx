@@ -1,2 +1,490 @@
 ## ReactiveMongoRepository
 
+MongoDB의 쿼리를 작성할 때 spring data mongodb 의 repository 를 기반으로 쿼리를 하려고 할 때 흔히 ReactiveMongoRepository 타입의 interface 에 대해 repository 코드를 작성합니다. 이 ReactiveMongoRepository 는 SimpleReactiveMongoRepository 라는 클래스가 구체타입으로 등록됩니다.<br/>
+
+이 SimpleReactiveMongoRepository 클래스를 중심으로 상속관계를 그림으로 표현해보면 아래와 같습니다.<br/>
+
+- [ReactiveMongoRepository\<T,ID\>](https://docs.spring.io/spring-data/mongodb/docs/current/api/org/springframework/data/mongodb/repository/ReactiveMongoRepository.html)
+
+- [ReactiveQueryByExampleExecutor\<T\>](https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/repository/query/ReactiveQueryByExampleExecutor.html)
+
+- [ReactiveCrudRepository\<T,ID\>](https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/repository/reactive/ReactiveCrudRepository.html)
+- [ReactiveSortingRepository\<T,ID\>](https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/repository/reactive/ReactiveSortingRepository.html)
+- [Repository\<T,ID\>](https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/repository/Repository.html)
+
+<br/>
+
+
+
+
+> 참고 : [SimpleReactiveMongoRepository](https://docs.spring.io/spring-data/mongodb/docs/current/api/org/springframework/data/mongodb/repository/support/SimpleReactiveMongoRepository.html)
+
+![](./img/reactive-mongo-repository/hierarchy.png)
+
+<br/>
+
+
+
+## Component Scan
+
+MongoDB와 R2DBC 를 함께 사용하는 경우 아래와 같은 방식으로 설정을 해줍니다. 
+
+```java
+@EnableReactiveMongoRepositories(
+    basePackages = "io.chagchagchag.example.example_mongo.repository",
+    reactiveMongoTemplateRef = "reactiveMongoTemplate"
+)
+@Configuration
+public class ReactiveMongoConfig {
+    // ...
+}
+```
+
+이렇게 명시적으로 `@EnableReactiveMongoRepositories` 를 지정하는 이유는 서버 애플리케이션 개발자가 선언한 Repository 들을 스프링이 컴포넌트 스캔을 할 때 스프링 컨테이너 입장에서는 이 것들을 일일이 MongoDB인지 R2DBC 인지 구별해낼 수 있는 방법이 명확하지 않습니다. 이런 이유로 인해 위와 같이 MongoDB Repository 는 위의 패키지 들에 있다고 명시해줄 수 있는 `@EnableReactiveMongoRepositories` 를 통해 컴포넌트 스캔을 수행할 패키지 경로를 명시해줍니다.<br/>
+
+이런 이유 외에도 멀티 모듈 기반으로 프로젝트를 구성할 때, 어떤 모듈에서 다른 모듈에 속한 Data 모듈을 읽어와야 하는데, 이런 경우에 위와같이 `@Enable***Repositories` 애노테이션을 통해 컴포넌트 스캔할 리포지터리들을 명시하도록 선언하고 정의합니다.<br/>
+
+<br/>
+
+
+
+## SimpleReactiveMongoRepository
+
+![](./img/reactive-mongo-repository/hierarchy.png)
+
+SimpleReactiveMongoRepository 는 ReactiveMongoRepository 를 implements 하고 있는 클래스입니다. 
+
+> 참고 : [SimpleReactiveMongoRepository.java](https://github.com/spring-projects/spring-data-mongodb/blob/main/spring-data-mongodb/src/main/java/org/springframework/data/mongodb/repository/support/SimpleReactiveMongoRepository.java)
+
+```java
+package org.springframework.data.mongodb.repository.support;
+
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+	private @Nullable CrudMethodMetadata crudMethodMetadata;
+	private final MongoEntityInformation<T, ID> entityInformation;
+	private final ReactiveMongoOperations mongoOperations;
+    
+    // ...
+    
+}
+```
+
+위의 코드를 보면 멤버 필드로 ReactiveMongoOperations 를 바인딩하고 있습니다. 즉, ReactiveMongoOperations 를 기반으로 복잡한 쿼리들을 고수준으로 래핑해서 제공하고 있다는 사실을 알 수 있습니다.
+
+<br/>
+
+
+
+## save 연산 (insert, update 연산)
+
+> 참고 : [SimpleReactiveMongoRepository.java](https://github.com/spring-projects/spring-data-mongodb/blob/main/spring-data-mongodb/src/main/java/org/springframework/data/mongodb/repository/support/SimpleReactiveMongoRepository.java)
+
+<br/>
+
+[SimpleReactiveMongoRepository.java](https://github.com/spring-projects/spring-data-mongodb/blob/main/spring-data-mongodb/src/main/java/org/springframework/data/mongodb/repository/support/SimpleReactiveMongoRepository.java) 내에서 `save()`, `saveAll()` 의 구현은 아래와 같습니다.
+
+```java
+package org.springframework.data.mongodb.repository.support;
+
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+	private @Nullable CrudMethodMetadata crudMethodMetadata;
+	private final MongoEntityInformation<T, ID> entityInformation;
+	private final ReactiveMongoOperations mongoOperations;
+    
+    // ...
+    
+    @Override
+	public <S extends T> Mono<S> save(S entity) {
+
+		Assert.notNull(entity, "Entity must not be null");
+
+		if (entityInformation.isNew(entity)) {
+			return mongoOperations.insert(entity, entityInformation.getCollectionName());
+		}
+
+		return mongoOperations.save(entity, entityInformation.getCollectionName());
+	}
+
+	@Override
+	public <S extends T> Flux<S> saveAll(Iterable<S> entities) {
+
+		Assert.notNull(entities, "The given Iterable of entities must not be null");
+
+		Streamable<S> source = Streamable.of(entities);
+
+		return source.stream().allMatch(entityInformation::isNew) ? //
+				mongoOperations.insert(source.stream().collect(Collectors.toList()), entityInformation.getCollectionName()) : //
+				Flux.fromIterable(entities).flatMap(this::save);
+	}
+
+	@Override
+	public <S extends T> Flux<S> saveAll(Publisher<S> entityStream) {
+
+		Assert.notNull(entityStream, "The given Publisher of entities must not be null");
+
+		return Flux.from(entityStream).flatMapSequential(entity -> entityInformation.isNew(entity) ? //
+				mongoOperations.insert(entity, entityInformation.getCollectionName()) : //
+				mongoOperations.save(entity, entityInformation.getCollectionName()));
+	}
+    
+}
+```
+
+
+
+### save()
+
+```java
+package org.springframework.data.mongodb.repository.support;
+
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+    // ...
+    
+    @Override
+	public <S extends T> Mono<S> save(S entity) {
+
+		Assert.notNull(entity, "Entity must not be null");
+
+		if (entityInformation.isNew(entity)) {
+			return mongoOperations.insert(entity, entityInformation.getCollectionName());
+		}
+
+		return mongoOperations.save(entity, entityInformation.getCollectionName());
+	}
+    
+    // ...
+    
+}
+```
+
+새로운 Entity 일 경우 INSERT 수행, 새로운 Entity 가 아닐 경우 UPDATE 수행 (`_id` 필드가 null 이면 new 를 수행)
+
+- JPA 를 스터디 할 때 흔히 Persistable 을 통해 변경감지하는 로직을 공부한 분들이 많으실 겁니다. 
+- Spring Data Mongodb Reactive 에서도 isNew 인지를 검사한 후 새로운 entity 라는 판단이 들면 (주로 `_id` 가 null 인지로 판별) insert 를 수행합니다.
+- Database 에서 해당 key 를 읽어온 후 새로운 entity 인지를 체크하는 로직을 통해 isNew() 를 판정하게끔 하려면, 별도로 isNew() 함수를 Entity(`@Document` 가 적용된 클래스)에 Override 하셔야 합니다. isNew() 는 Persistable 인터페이스의 명세 중 하나입니다. 이렇게 IO 작업을 isNew() 에 적용할지 고민하는 경우에는 차라리 가급적 Upsert 쿼리를 따로 작성하시길 권장 드립니다.
+
+<br/>
+
+### saveAll()
+
+**Spring Data MongoDB Reactive 의 saveAll() 연산이 R2DBC 와 다른 점은 `@Transactional` 이 붙어있지 않다**는 점입니다. 따라서 여러 개의 데이터를 saveAll() 로 처리 시에 UncheckedException 이 발생되어 롤백되어야 하는 상황일 경우 UncheckedException 이 발생하기 직전까지 save() 했던 데이터는 유지되므로 트랜잭션의 원자성을 확보하기는 어렵습니다.<br/>
+
+```java
+package org.springframework.data.mongodb.repository.support;
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+	// ...
+    
+	@Override
+	public <S extends T> Flux<S> saveAll(Iterable<S> entities) {
+
+		Assert.notNull(entities, "The given Iterable of entities must not be null");
+
+		Streamable<S> source = Streamable.of(entities);
+
+		return source.stream().allMatch(entityInformation::isNew) ? //
+				mongoOperations.insert(source.stream().collect(Collectors.toList()), entityInformation.getCollectionName()) : //
+				Flux.fromIterable(entities).flatMap(this::save);
+	}
+
+	@Override
+	public <S extends T> Flux<S> saveAll(Publisher<S> entityStream) {
+
+		Assert.notNull(entityStream, "The given Publisher of entities must not be null");
+
+		return Flux.from(entityStream).flatMapSequential(entity -> entityInformation.isNew(entity) ? //
+				mongoOperations.insert(entity, entityInformation.getCollectionName()) : //
+				mongoOperations.save(entity, entityInformation.getCollectionName()));
+	}
+    
+}
+```
+
+List 같은 Collection, Flux 같은 Publisher 처럼 여러개의 데이터 또는 여러 데이터의 흐름에 대해 아래의 연산을 수행합니다.
+
+- 모든 데이터가 isNew() == true 일 경우 :  MongoOperations 를 이용해서 insert 를 수행합니다.
+- 이 외의 경우 : 각각의 데이터에 대해 개별적으로 save() 를 수행합니다.
+
+<br/>
+
+
+
+## 조회 연산 (find 연산)
+
+> 참고 : [SimpleReactiveMongoRepository.java](https://github.com/spring-projects/spring-data-mongodb/blob/main/spring-data-mongodb/src/main/java/org/springframework/data/mongodb/repository/support/SimpleReactiveMongoRepository.java)
+
+[SimpleReactiveMongoRepository.java](https://github.com/spring-projects/spring-data-mongodb/blob/main/spring-data-mongodb/src/main/java/org/springframework/data/mongodb/repository/support/SimpleReactiveMongoRepository.java) 내에서 `findById()`, `existsById()`, `findAll()`, `count()` 의 구현은 아래와 같습니다.
+
+```java
+package org.springframework.data.mongodb.repository.support;
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+	// ...
+    
+	@Override
+	public Mono<T> findById(ID id) {
+
+		Assert.notNull(id, "The given id must not be null");
+
+		Query query = getIdQuery(id);
+		getReadPreference().ifPresent(query::withReadPreference);
+		return mongoOperations.findOne(query, entityInformation.getJavaType(), entityInformation.getCollectionName());
+	}
+    
+    // 같은 이름, 비슷한 용도의 메소드 오버로딩 메서드 들은 생략 ...
+    
+	@Override
+	public Mono<Boolean> existsById(ID id) {
+
+		Assert.notNull(id, "The given id must not be null");
+
+		Query query = getIdQuery(id);
+		getReadPreference().ifPresent(query::withReadPreference);
+		return mongoOperations.exists(query, entityInformation.getJavaType(), entityInformation.getCollectionName());
+	}
+
+	// 같은 이름, 비슷한 용도의 메소드 오버로딩 메서드 들은 생략 ...
+
+	@Override
+	public Flux<T> findAll() {
+		return findAll(new Query());
+	}
+
+	@Override
+	public Flux<T> findAllById(Iterable<ID> ids) {
+
+		Assert.notNull(ids, "The given Iterable of Id's must not be null");
+
+		return findAll(getIdQuery(ids));
+	}
+
+	// 같은 이름, 비슷한 용도의 메소드 오버로딩 메서드 들은 생략 ...
+
+	@Override
+	public Mono<Long> count() {
+
+		Query query = new Query();
+		getReadPreference().ifPresent(query::withReadPreference);
+		return mongoOperations.count(query, entityInformation.getCollectionName());
+	}
+    
+}
+```
+
+<br/>
+
+
+
+### findById()
+
+findById() 메서드의 내부입니다. 특별한 점은 없고, MongoOperations 객체로 저수준의 Query 가 findById() 에 맞도록 구성되어 있다는 사실을 알 수 있습니다.<br/>
+
+```java
+package org.springframework.data.mongodb.repository.support;
+
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+	
+    // ...
+    
+	@Override
+	public Mono<T> findById(ID id) {
+
+		Assert.notNull(id, "The given id must not be null");
+
+		Query query = getIdQuery(id);
+		getReadPreference().ifPresent(query::withReadPreference);
+		return mongoOperations.findOne(query, entityInformation.getJavaType(), entityInformation.getCollectionName());
+	}
+    
+    // ...
+    
+    private Query getIdQuery(Object id) {
+		return new Query(getIdCriteria(id));
+	}
+    
+}
+```
+
+<br/>
+
+
+
+### existsById()
+
+existsById() 메서드의 내부입니다. 특별한 점은 없고, MongoOperations 객체로 저수준의 Query 가 existsById() 에 맞도록 구성되어 있다는 사실을 알 수 있습니다.<br/>
+
+```java
+package org.springframework.data.mongodb.repository.support;
+
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+	
+    // ...
+    
+	@Override
+	public Mono<Boolean> existsById(ID id) {
+
+		Assert.notNull(id, "The given id must not be null");
+
+		Query query = getIdQuery(id);
+		getReadPreference().ifPresent(query::withReadPreference);
+		return mongoOperations.exists(query, entityInformation.getJavaType(), entityInformation.getCollectionName());
+	}
+
+	@Override
+	public Mono<Boolean> existsById(Publisher<ID> publisher) {
+
+		Assert.notNull(publisher, "The given id must not be null");
+		Optional<ReadPreference> readPreference = getReadPreference();
+
+		return Mono.from(publisher).flatMap(id -> {
+			Query query = getIdQuery(id);
+			readPreference.ifPresent(query::withReadPreference);
+			return mongoOperations.exists(query, entityInformation.getJavaType(), entityInformation.getCollectionName());
+		});
+	}
+    
+    private Query getIdQuery(Object id) {
+		return new Query(getIdCriteria(id));
+	}
+    
+}
+```
+
+<br/>
+
+
+
+### findAll()
+
+findAll() 메서드의 내부입니다. 특별한 점은 없고, MongoOperations 객체로 저수준의 Query 가 findAll() 에 맞도록 구성되어 있다는 사실을 알 수 있습니다.<br/>
+
+```java
+package org.springframework.data.mongodb.repository.support;
+
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+	
+    // ...
+    
+	@Override
+	public Flux<T> findAll() {
+		return findAll(new Query());
+	}
+
+	@Override
+	public Flux<T> findAllById(Iterable<ID> ids) {
+
+		Assert.notNull(ids, "The given Iterable of Id's must not be null");
+
+		return findAll(getIdQuery(ids));
+	}
+
+	@Override
+	public Flux<T> findAllById(Publisher<ID> ids) {
+
+		Assert.notNull(ids, "The given Publisher of Id's must not be null");
+
+		Optional<ReadPreference> readPreference = getReadPreference();
+		return Flux.from(ids).buffer().flatMapSequential(listOfIds -> {
+			Query query = getIdQuery(listOfIds);
+			readPreference.ifPresent(query::withReadPreference);
+			return mongoOperations.find(query, entityInformation.getJavaType(), entityInformation.getCollectionName());
+		});
+	}
+    
+    // ...
+    
+    private Query getIdQuery(Iterable<? extends ID> ids) {
+		return new Query(where(entityInformation.getIdAttribute()).in(toCollection(ids)));
+	}
+    
+}
+```
+
+<br/>
+
+
+
+### count()
+
+MongoOperations 객체를 이용해서 Count 쿼리를 수행하고 있다는 사실을 확인 가능합니다.
+
+```java
+package org.springframework.data.mongodb.repository.support;
+
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+	
+    // ...
+    
+	@Override
+	public Mono<Long> count() {
+
+		Query query = new Query();
+		getReadPreference().ifPresent(query::withReadPreference);
+		return mongoOperations.count(query, entityInformation.getCollectionName());
+	}
+    
+    // ...
+    
+}
+```
+
+<br/>
+
+
+
+## 삭제 연산 (delete 연산)
+
+delete 관련된 연산은 종류가 많습니다. 그중 deleteById(), deleteAllById() 를 살펴보면 아래와 같습니다. 주의할 점은 deleteAllById() 에 @Transactional 이 적용되어 있지 않다는 점을 주의해야 합니다.<br/>
+
+```java
+package org.springframework.data.mongodb.repository.support;
+
+// ...
+
+public class SimpleReactiveMongoRepository<T, ID extends Serializable> implements ReactiveMongoRepository<T, ID> {
+	
+    // ...
+    
+	@Override
+	public Mono<Void> deleteById(ID id) {
+
+		Assert.notNull(id, "The given id must not be null");
+
+		return deleteById(id, getReadPreference());
+	}
+    
+    // ...
+    
+    @Override
+	public Mono<Void> deleteAllById(Iterable<? extends ID> ids) {
+
+		Assert.notNull(ids, "The given Iterable of Id's must not be null");
+
+		Query query = getIdQuery(ids);
+		getReadPreference().ifPresent(query::withReadPreference);
+		return mongoOperations.remove(query, entityInformation.getJavaType(), entityInformation.getCollectionName()).then();
+	}
+    
+}
+```
+
+
+
+
+
