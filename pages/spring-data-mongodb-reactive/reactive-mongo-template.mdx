@@ -54,8 +54,6 @@ public class ReactiveMongoTemplate implements ReactiveMongoOperations, Applicati
 }
 ```
 
-
-
 첫번째 생성자인 `ReactiveMongoTemplate(MongoClient mongoClient, String databaseName)` 을 사용하면 단순한 ReactiveMongoTemplate  객체를 생성하는 것이 가능합니다.<br/>
 
 일반적으로는 두번째 또는 세번째 생성자처럼 ReactiveMongoDatabaseFactory 또는 MongoConverter 를 받아서 ReactiveMongoTemplate 을 생성해서 @Bean 으로 등록하는 경우가 많습니다.<br/>
