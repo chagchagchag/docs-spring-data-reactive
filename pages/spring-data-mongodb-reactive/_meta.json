@@ -10,5 +10,6 @@
     "reactive-mongo-operation": "ReactiveMongoOperation",
     "reactive-mongo-repository": "ReactiveMongoRepository",
     "query-methods": "Query 메서드",
+    "aggregation-pipeline": "Aggregation Pipeline",
     "transactional": "@Transactional"
 }
