@@ -222,6 +222,37 @@ public class Decimal128ToBigDecimalConverter implements Converter<Decimal128, Bi
 
 
 
+### Repository Scan 설정
+
+MongodbReactiveExampleApplication.java
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.mongodb.repository.config.EnableReactiveMongoRepositories;
+
+@EnableReactiveMongoRepositories(
+		basePackages = {
+				"io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book",
+		},
+		reactiveMongoTemplateRef = "helloworldReactiveMongoTemplate"
+)
+@SpringBootApplication
+public class MongodbReactiveExampleApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(MongodbReactiveExampleApplication.class, args);
+	}
+
+}
+```
+
+<br/>
+
+
+
 ## Document
 
 Document 는 아래와 같습니다. 설명은 생략합니다.
