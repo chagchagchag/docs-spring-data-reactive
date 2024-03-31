@@ -63,9 +63,202 @@ ReactiveMongoRepository, ReactiveSortingRepository 등과 같은 Repository 관�
 
 
 
+## 참고
+
+다른 문서에도 정리해두겠지만, Repository 코드 작성시 인자값의 타입 등에 대해 아래의 규칙을 갖습니다. 아직은 떠오르는게 아래 내용밖에 없기 때문에 추가적으로 생각날때마다 더 추가해두겠습니다.
+
+- enum 타입 : Spring Data MongoDB 에서 Enum 타입은 별도로 Converting 이 필요 없고, String 으로 변환되어 데이터베이스에 추가/수정되고, String 타입은 Enum 타입으로 변환되어 읽어들일 수 있습니다.
+- BigDecimal 타입 : Spring Data MongoDB 에서 BigDecimal 타입은 별도의 Converter 코드를 작성해야 합니다. 아래에 제공하는 설정 코드에서 그 내용을 확인 가능합니다.
+
+<br/>
+
+
+
+## MongoTemplate 설정
+
+### MongoReactiveConfiguration.java
+
+설명은 생략하겠습니다.
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.config;
+
+import com.mongodb.reactivestreams.client.MongoClient;
+import com.mongodb.reactivestreams.client.MongoClients;
+import java.math.BigDecimal;
+import java.util.Arrays;
+import org.bson.json.StrictJsonWriter;
+import org.bson.types.Decimal128;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.mongo.MongoProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
+import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.SimpleReactiveMongoDatabaseFactory;
+import org.springframework.data.mongodb.core.convert.MongoConverter;
+import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
+
+@Configuration
+public class MongoReactiveConfiguration {
+  @Value("${spring.data.mongodb.uri}")
+  private String mongoUri;
+
+  @Bean
+  public MongoClient reactiveMongoClient(){
+    return MongoClients.create(mongoUri);
+  }
+
+  @Bean
+  public ReactiveMongoTransactionManager transactionManager(
+      ReactiveMongoDatabaseFactory dbFactory
+  ){
+    return new ReactiveMongoTransactionManager(dbFactory);
+  }
+
+  @Bean(name = "helloworldReactiveMongoDatabaseFactory")
+  public SimpleReactiveMongoDatabaseFactory helloworldReactiveMongoDatabaseFactory(
+      MongoProperties mongoProperties,
+      MongoClient mongoClient
+  ){
+    // 이렇게 할 수도 있지만, 하나의 프로젝트에서 여러 몽고 database 를 사용할 수 있으므로 비활성화
+//    String database = mongoProperties.getMongoClientDatabase();
+    final String database = "helloworld";
+    return new SimpleReactiveMongoDatabaseFactory(mongoClient, database);
+  }
+
+  @Bean(name = "helloworldReactiveMongoTemplate")
+  public ReactiveMongoTemplate helloworldReactiveMongoTemplate(
+      ReactiveMongoDatabaseFactory helloworldReactiveMongoDatabaseFactory,
+      MongoConverter mongoConverter
+  ){
+    return new ReactiveMongoTemplate(helloworldReactiveMongoDatabaseFactory, mongoConverter);
+  }
+
+  @Bean
+  public MongoCustomConversions mongoCustomConversions(){
+    return new MongoCustomConversions(
+        Arrays.asList(
+            new BigDecimalToDecimal128Converter(),
+            new Decimal128ToBigDecimalConverter()
+        )
+    );
+  }
+
+}
+```
+
+<br/>
+
+### BigDecimalToDecimal128Converter.java
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.config;
+
+import java.math.BigDecimal;
+import org.bson.types.Decimal128;
+import org.springframework.core.convert.converter.Converter;
+
+public class BigDecimalToDecimal128Converter implements Converter<BigDecimal, Decimal128> {
+  @Override
+  public Decimal128 convert(BigDecimal source) {
+    return source == null ? null : new Decimal128(source);
+  }
+}
+```
+
+<br/>
+
+
+
+### Decimal128ToBigDecimalConverter.java
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.config;
+
+import java.math.BigDecimal;
+import org.bson.types.Decimal128;
+import org.springframework.core.convert.converter.Converter;
+
+public class Decimal128ToBigDecimalConverter implements Converter<Decimal128, BigDecimal> {
+  @Override
+  public BigDecimal convert(Decimal128 source) {
+    return source == null ? null : source.bigDecimalValue();
+  }
+}
+```
+
+<br/>
+
+
+
+### Repository Scan 설정
+
+MongodbReactiveExampleApplication.java
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.mongodb.repository.config.EnableReactiveMongoRepositories;
+
+@EnableReactiveMongoRepositories(
+		basePackages = {
+				"io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book",
+		},
+		reactiveMongoTemplateRef = "helloworldReactiveMongoTemplate"
+)
+@SpringBootApplication
+public class MongodbReactiveExampleApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(MongodbReactiveExampleApplication.class, args);
+	}
+
+}
+```
+
+<br/>
+
+
+
+
+
 ## find 연산들
 
 ### e.g. 1 : 가격이 가장 높은 책을 조회
+
+Repository 코드
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import org.bson.types.ObjectId;
+import org.reactivestreams.Publisher;
+import org.springframework.data.mongodb.repository.Aggregation;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.data.mongodb.repository.Update;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+public interface BookDocumentRepository extends ReactiveSortingRepository<BookDocument, ObjectId> {
+  // ...
+  
+  Mono<BookDocument> findFirstByNameOrderByPriceDesc(String name);
+  
+  // ...
+}
+```
+
+<br/>
+
+
+
+테스트
 
 ```java
 package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.find;
@@ -116,7 +309,37 @@ public class BookDocumentFindTest {
 
 ### e.g. 2 : 객체 프로젝션 테스트
 
-도큐먼트에서 원하는 필드만 조회해오는 예제입니다.
+도큐먼트에서 원하는 필드만 조회해오는 예제입니다.<br/>
+
+Repository 코드
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import org.bson.types.ObjectId;
+import org.reactivestreams.Publisher;
+import org.springframework.data.mongodb.repository.Aggregation;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.data.mongodb.repository.Update;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+public interface BookDocumentRepository extends ReactiveSortingRepository<BookDocument, ObjectId> {
+  // ...
+  
+  Mono<BookNameDocument> findFirstByNameOrderByPublishedAtDesc(String name);
+
+  // ...
+}
+```
+
+<br/>
+
+
+
+테스트
 
 ```java
 package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.find;
@@ -188,6 +411,36 @@ delete 연산의 쿼리 메서드는 아래의 규칙을 따릅니다.
 
 ### e.g. 1: SaleStatus 가 `HOLD` 이면서, 23999 원 이상인 책을 삭제
 
+Repository 코드
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import org.bson.types.ObjectId;
+import org.reactivestreams.Publisher;
+import org.springframework.data.mongodb.repository.Aggregation;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.data.mongodb.repository.Update;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+public interface BookDocumentRepository extends ReactiveSortingRepository<BookDocument, ObjectId> {
+  // ...
+  
+  Flux<BookDocument> deleteBySaleStatusAndPriceGreaterThan(SaleStatus saleStatus, BigDecimal price);
+  
+  // ...
+}
+```
+
+<br/>
+
+
+
+테스트
+
 ```java
 package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.find;
 
@@ -258,7 +511,39 @@ public class BookDocumentFindTest {
 
 ![](./img/query-methods/sample-data-changed.png)
 
-이번에는 SaleStatus 가 `HOLD` 인 모든 데이터를 삭제하는 Query Method 를 테스트해봅니다.
+이번에는 SaleStatus 가 `HOLD` 인 모든 데이터를 삭제하는 Query Method 를 테스트해봅니다.<br/>
+
+
+
+Repository코드
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import org.bson.types.ObjectId;
+import org.reactivestreams.Publisher;
+import org.springframework.data.mongodb.repository.Aggregation;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.data.mongodb.repository.Update;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+public interface BookDocumentRepository extends ReactiveSortingRepository<BookDocument, ObjectId> {
+  // ...
+  
+  Mono<BookDocument> deleteBySaleStatus(SaleStatus saleStatus);
+  
+  // ...
+}
+```
+
+<br/>
+
+
+
+테스트
 
 ```java
 package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.find;
@@ -334,11 +619,223 @@ Process finished with exit code 0
 
 
 
-## Aggregation
+## @Query
 
-Aggregation 은 별도의 문서에 정리합니다.
+이번에는 `@Query` 를 이용한 쿼리를 살펴봅니다.<br/>
+
+### e.g. 1: SaleStatus 가 `FOR_SALE` 인 모든 도큐먼트 들을 조회
+
+Repository 코드
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import org.bson.types.ObjectId;
+import org.reactivestreams.Publisher;
+import org.springframework.data.mongodb.repository.Aggregation;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.data.mongodb.repository.Update;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+public interface BookDocumentRepository extends ReactiveSortingRepository<BookDocument, ObjectId> {
+  // ... 
+
+  @Query("{saleStatus: ?0}")
+  Flux<BookDocument> findBySaleStatus(SaleStatus saleStatus);
+
+}
+
+```
+
+<br/>
 
 
+
+테스트 
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.find;
+
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocumentRepository;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookNameDocument;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.SaleStatus;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@SpringBootTest
+public class BookDocumentFindTest {
+  private final Logger log = LoggerFactory.getLogger(BookDocumentFindTest.class);
+
+  @Autowired
+  private BookDocumentRepository bookDocumentRepository;
+
+  // ...
+
+  @DisplayName("QUERY_ANNOTATION__SALE_STATUS_가_FOR_SALE_인_책들을_조회")
+  @Test
+  public void TEST_QUERY_ANNOTATION__SALE_STATUS_가_FOR_SALE_인_책들을_조회(){
+    // given
+
+    // when
+    List<BookDocument> forSaleBooks = bookDocumentRepository
+        .findBySaleStatus(SaleStatus.FOR_SALE)
+        .toStream()
+        .collect(Collectors.toList());
+
+    // then
+    forSaleBooks.forEach(bookDocument -> {
+      log.info("book.name = {}, book.price = {}, book.saleStatus = {}",
+          bookDocument.getName(),
+          bookDocument.getPrice(),
+          bookDocument.getSaleStatus());
+    });
+  }
+}
+```
+
+<br/>
+
+출력결과
+
+```plain
+2024-04-01T00:23:26.691+09:00  INFO 356064 --- [main] i.c.e.m.e.b.find.BookDocumentFindTest    : book.name = 바람과 함께 사라지다, book.price = 20000, book.saleStatus = FOR_SALE
+2024-04-01T00:23:26.692+09:00  INFO 356064 --- [main] i.c.e.m.e.b.find.BookDocumentFindTest    : book.name = 바람과 함께 사라지다, book.price = 25000, book.saleStatus = FOR_SALE
+2024-04-01T00:23:26.692+09:00  INFO 356064 --- [main] i.c.e.m.e.b.find.BookDocumentFindTest    : book.name = 바람과 함께 사라지다, book.price = 30000, book.saleStatus = FOR_SALE
+```
+
+<br/>
+
+
+
+### e.g. 2: SaleStatus 가 `FOR_SALE` 인 모든 책들의 이름을 `글루코스 혁명` 이라는 책 제목으로 업데이트
+
+Repository 코드
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import org.bson.types.ObjectId;
+import org.reactivestreams.Publisher;
+import org.springframework.data.mongodb.repository.Aggregation;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.data.mongodb.repository.Update;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+public interface BookDocumentRepository extends ReactiveSortingRepository<BookDocument, ObjectId> {
+  // ...
+  
+  @Query("{saleStatus: ?0}")
+  @Update(value = "{$set : {name: ?1}}")
+  Mono<Long> updateBookNameBySaleStatus(SaleStatus saleStatus, String toBeChanged);
+}
+```
+
+
+
+<br/>
+
+테스트
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.find;
+
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocumentRepository;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookNameDocument;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.SaleStatus;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@SpringBootTest
+public class BookDocumentFindTest {
+  private final Logger log = LoggerFactory.getLogger(BookDocumentFindTest.class);
+
+  @Autowired
+  private BookDocumentRepository bookDocumentRepository;
+  
+  // ...
+  
+  @DisplayName("QUERY_ANNOTATION__SALE_STATUS_가_FOR_SALE_인_책들의_이름을_글루코스_혁명_이라는_제목으로_업데이트")
+  @Test
+  public void TEST_QUERY_ANNOTATION__SALE_STATUS_가_FOR_SALE_인_책들의_이름을_글루코스_혁명_이라는_제목으로_업데이트(){
+    // given
+
+    // when
+    Long updatedBooks = bookDocumentRepository
+        .updateBookNameBySaleStatus(SaleStatus.FOR_SALE, "글루코스 혁명")
+        .block();
+
+    List<BookDocument> forSaleBooks = bookDocumentRepository
+        .findBySaleStatus(SaleStatus.FOR_SALE)
+        .toStream()
+        .collect(Collectors.toList());
+
+    // then
+    log.info("updatedBook count = {}", updatedBooks);
+
+    forSaleBooks.forEach(bookDocument -> {
+      log.info("book.name = {}, book.saleStatus = {}", bookDocument.getName(), bookDocument.getSaleStatus());
+    });
+  }
+
+}
+```
+
+<br/>
+
+
+
+출력결과
+
+```plain
+2024-04-01T00:44:28.497+09:00  INFO 457016 --- [main] i.c.e.m.e.b.find.BookDocumentFindTest    : updatedBook count = 3
+2024-04-01T00:44:28.498+09:00  INFO 457016 --- [main] i.c.e.m.e.b.find.BookDocumentFindTest    : book.name = 글루코스 혁명, book.saleStatus = FOR_SALE
+2024-04-01T00:44:28.499+09:00  INFO 457016 --- [main] i.c.e.m.e.b.find.BookDocumentFindTest    : book.name = 글루코스 혁명, book.saleStatus = FOR_SALE
+2024-04-01T00:44:28.499+09:00  INFO 457016 --- [main] i.c.e.m.e.b.find.BookDocumentFindTest    : book.name = 글루코스 혁명, book.saleStatus = FOR_SALE
+
+Process finished with exit code 0
+```
+
+<br/>
+
+
+
+Database 내의 결과를 확인해보면 아래와 같이 잘 반영되었음을 확인가능합니다.
+
+![](./img/query-methods/sample-data-changed3.png)
+
+<br/>
+
+
+
+## QueryMethod 에서 지원되는 MongoDB Query 연산
+
+> TODO : 추가 예정
 
 
 
