@@ -9,6 +9,14 @@ Spring Data MongoDB Reactive 에서 Transactional 기반의 연산을 하는 방
 
 <br/>
 
+트랜잭션을 제대로 처음부터 공부해보신 분들이라면, 우리가 @Transactional 을 통해서 작성한 비즈니스 로직은 스프링 트랜잭션 코드 내에서 람다 형태로 콜백처럼 넘겨진다는 사실을 알고 계실 듯 합니다. 이 개념을 설명하려면 굉장히 많은 스토리를 들어서 설명해야 해서 동작 원리에 대해서 설명하는 것은 이번 문서에서는 건너뜁니다.<br/>
+
+이렇게 람다 형태로 비즈니스 로직을 스프링 트랜잭션 계층에 넘겨주면 스프링 트랜잭션은 이 람다 형태의 비즈니스 로직을 실행 전에 트랜잭션을 열고, 실행을 마친 후 트랜잭션을 닫는 동작을 내부적으로 수행해줍니다. 트랜잭션을 열고 닫는 일종의 보일러플레이트 코드를 체계화 한 것이라고 볼 수 있습니다. 사람이 직접 이런 코드를 작성한다면, 실수가 생길 수 있기 때문에 스프링의 트랜잭션 기능은 이런 휴먼에러를 방지할 수 있도록 친절한 코드를 가지고 있는 편입니다.<br/>
+
+이번문서에서는 @Transactional 을 이용한 전통적인 선언적인 방식의 트랜잭션 수행방식과, transactional() 메서드 또는 execute() 를 이용한 함수형 트랜잭션 수행방식을 살펴봅니다.<br/>
+
+<br/>
+
 
 
 ## Document 객체 생성 코드
@@ -232,9 +240,50 @@ Process finished with exit code 0
 
 ## TransactionalOperator (1) : transactional() 사용방식
 
+설명은 건너뛰도록 하겠습니다.<br/>
+
 Service
 
 ```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import reactor.core.publisher.Flux;
+
+@Slf4j
+@RequiredArgsConstructor
+@Service
+public class BookDocumentService {
+  private final BookDocumentFactory documentFactory;
+  private final BookDocumentTransactionRepository bookDocumentTransactionRepository;
+  private final TransactionalOperator transactionalOperator;
+    
+  // ...
+
+  public Flux<BookDocument> insertNewBookTransactional(String name, BigDecimal price){
+    BookDocument book = documentFactory.newBookDocument(
+        name, price, LocalDateTime.now()
+    );
+
+    Flux<BookDocument> flux = bookDocumentTransactionRepository.insert(book)
+        .flatMap(bookDocument -> {
+          BookDocument forSale = documentFactory.withSaleStatus(bookDocument, SaleStatus.FOR_SALE);
+          return bookDocumentTransactionRepository.save(forSale);
+        })
+        .thenMany(bookDocumentTransactionRepository.findAll());
+
+    return transactionalOperator.transactional(flux);
+  }
+  
+  // ...
+  
+}
 ```
 
 <br/>
@@ -244,6 +293,45 @@ Service
 테스트
 
 ```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.transactional;
+
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocumentService;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class BookDocumentTransactionalTest {
+  private static Logger log = LoggerFactory.getLogger(BookDocumentTransactionalTest.class);
+
+  @Autowired
+  private BookDocumentService sut;
+    
+  // ...
+  
+  @DisplayName("새로운_책을_트랜잭셔널_메서드를_이용해서_저장_및_수정")
+  @Test
+  public void TEST_새로운_책을_트랜잭셔널_메서드를_이용해서_저장_및_수정(){
+    // given
+    
+    // when
+    
+    // then
+    log.info("before save");
+    List<BookDocument> result = sut.insertNewBookTransactional("맛도리 여행", BigDecimal.valueOf(3000))
+        .toStream()
+        .collect(Collectors.toList());
+    log.info("after save, result = {}", result);
+  }
+  
+}
 ```
 
 <br/>
@@ -251,6 +339,15 @@ Service
 
 
 출력결과
+
+```plain
+2024-04-01T11:48:03.934+09:00  INFO 613188 --- [main] .e.m.e.b.t.BookDocumentTransactionalTest : before save
+2024-04-01T11:48:04.335+09:00  INFO 613188 --- [main] .e.m.e.b.t.BookDocumentTransactionalTest : after save, result = [io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@7affee54, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@96075c0, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@2337bf27, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@4679554d, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@43719e98, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@49353d43]
+
+Process finished with exit code 0
+```
+
+
 
 <br/>
 
@@ -261,7 +358,43 @@ Service
 Service
 
 ```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import reactor.core.publisher.Flux;
+
+@Slf4j
+@RequiredArgsConstructor
+@Service
+public class BookDocumentService {
+  private final BookDocumentFactory documentFactory;
+  private final BookDocumentTransactionRepository bookDocumentTransactionRepository;
+  private final TransactionalOperator transactionalOperator;
+
+  // ...
+  
+  public Flux<BookDocument> insertNewBookExecute(String name, BigDecimal price){
+    BookDocument book = documentFactory.newBookDocument(
+        name, price, LocalDateTime.now()
+    );
+
+    Flux<BookDocument> flux = bookDocumentTransactionRepository.insert(book)
+        .flatMap(bookDocument -> {
+          BookDocument forSale = documentFactory.withSaleStatus(bookDocument, SaleStatus.FOR_SALE);
+          return bookDocumentTransactionRepository.save(forSale);
+        })
+        .thenMany(bookDocumentTransactionRepository.findAll());
+
+    return transactionalOperator.execute(status -> flux);
+  }
+
+}
 ```
 
 <br/>
@@ -271,7 +404,44 @@ Service
 테스트
 
 ```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.transactional;
 
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocumentService;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class BookDocumentTransactionalTest {
+  private static Logger log = LoggerFactory.getLogger(BookDocumentTransactionalTest.class);
+
+  @Autowired
+  private BookDocumentService sut;
+
+  // ...
+
+  @DisplayName("새로운_책을_execute_메서드를_이용해서_저장_및_수정")
+  @Test
+  public void TEST_새로운_책을_execute_메서드를_이용해서_저장_및_수정(){
+    // given
+
+    // when
+
+    // then
+    log.info("before save");
+    List<BookDocument> result = sut.insertNewBookExecute("맛도리 여행", BigDecimal.valueOf(3000))
+        .toStream()
+        .collect(Collectors.toList());
+    log.info("after save, result = {}", result);
+  }
+}
 ```
 
 <br/>
@@ -279,6 +449,13 @@ Service
 
 
 출력결과
+
+```plain
+2024-04-01T11:50:29.258+09:00  INFO 627264 --- [main] .e.m.e.b.t.BookDocumentTransactionalTest : before save
+2024-04-01T11:50:29.653+09:00  INFO 627264 --- [main] .e.m.e.b.t.BookDocumentTransactionalTest : after save, result = [io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@1835b783, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@456b140f, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@2459333a, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@1e6bd367, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@2bd7f686, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@3601549f]
+
+Process finished with exit code 0
+```
 
 <br/>
 
