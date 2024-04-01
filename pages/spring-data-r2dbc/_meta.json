@@ -1,4 +1,13 @@
 {
     "mysql-features": "MySQL 특징",
-    "spring-data-r2dbc": "Spring Data R2DBC"
+    "jdbc-jpa-vs-r2dbc":"JDBC, JPA 와의 차이점",
+    "r2dbc-spi-r2dbc-drivers": "R2DBC SPI, R2DBC 드라이버, Connection 설정",
+    "simple-r2dbc-code": "R2DBC 기반 Raw 레벨 코드, Transaction",
+    "entity-mysql-data-mapping": "Entity, MySQL 타입 매핑",
+    "spring-data-object-mapping-and-creation": "Spring Data Reactive 의 객체생성 방식과 필드 매핑방식",
+    "r2dbc-repository": "R2dbcRepository",
+    "query-methods": "Query Methods",
+    "transactional-transactional-operator": "@Transactional, TransactionalOperator",
+    "r2dbc-entity-operations": "R2dbcEntityOperations",
+    "r2dbc-entity-template": "R2dbcEntityTemplate"
 }
