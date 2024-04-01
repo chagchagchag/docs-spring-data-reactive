@@ -1,2 +1,288 @@
 ## Transactional, TransactionalOperator
 
+Spring Data MongoDB Reactive 에서 Transactional 기반의 연산을 하는 방식은 아래와 같이 두가지 입니다.
+
+- @Transactional 애노테이션을 사용하는 방식
+- TransactionalOperator 를 사용하는 방식
+  - transactional() 메서드 사용
+  - execute() 메서드 사용
+
+<br/>
+
+
+
+## Document 객체 생성 코드
+
+객체 생성을 테스트하기 때문에 아래와 같이 Document 객체를 구성하고, 생성자를 준비해두었습니다. 현재 시점에서 `@PersistenceCreator` 는 Spring Data MongoDB Reactive 의 버전에 따라서 상이하게 동작하기에 가급적이면 `@PersistenceCreator` 를 사용하기보다는 비즈니스 로직에 맞는 팩토리 메서드 또는 팩토리 메서드를 모아둔 컴포넌트를 자체적으로 정의하는 것을 추천드립니다.<br/>
+
+<br/>
+
+
+
+### BookDocument.java
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.bson.types.ObjectId;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
+
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+@Getter
+@Document(collection = "book")
+public class BookDocument {
+  private ObjectId id;
+  private String name;
+  @Field(targetType = FieldType.DECIMAL128)
+  private BigDecimal price;
+  private LocalDateTime publishedAt;
+  private SaleStatus saleStatus;
+  
+  public BookDocument(
+    ObjectId id,
+    String name,
+    BigDecimal price,
+    LocalDateTime publishedAt,
+    SaleStatus saleStatus
+  ){
+    this.id = id;
+    this.name = name;
+    this.price = price;
+    this.publishedAt = publishedAt;
+    this.saleStatus = saleStatus;
+  }
+}
+```
+
+<br/>
+
+
+
+### BookDocumentFactory.java
+
+이해하기 쉬운 코드이기 때문에 설명은 건너뛰도록 하겠습니다.
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import org.bson.types.ObjectId;
+import org.springframework.stereotype.Component;
+
+@Component
+public class BookDocumentFactory {
+  public BookDocument of(ObjectId objectId, String name, BigDecimal price, LocalDateTime publishedAt, SaleStatus saleStatus){
+    return new BookDocument(
+        objectId, name, price, publishedAt, saleStatus
+    );
+  }
+
+  public BookDocument newBookDocument(
+      String name, BigDecimal price, LocalDateTime publishedAt
+  ){
+    return of(
+        null, name, price, publishedAt, SaleStatus.WAITING_FOR_SALE
+    );
+  }
+
+  public BookDocument withSaleStatus(
+      BookDocument bookDocument, SaleStatus saleStatus
+  ){
+    return of(
+        bookDocument.getId(), bookDocument.getName(), bookDocument.getPrice(), bookDocument.getPublishedAt(), saleStatus
+    );
+  }
+}
+```
+
+<br/>
+
+
+
+## Repository
+
+BookDocumentTransactionRepository 라는 이름의 Repository 를 생성해두었습니다.
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import org.bson.types.ObjectId;
+import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
+
+public interface BookDocumentTransactionRepository extends ReactiveMongoRepository<BookDocument, ObjectId> {
+}
+```
+
+<br/>
+
+
+
+## `@Transactional` 애노테이션 방식의 트랜잭션 연산
+
+### BookDocumentService.java
+
+Repository 의 메서드를 호출하는 연산은 아래와 같습니다. 간단한 코드이기에 설명은 생략합니다.
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+
+@Slf4j
+@RequiredArgsConstructor
+@Service
+public class BookDocumentService {
+  private final BookDocumentFactory documentFactory;
+  private final BookDocumentTransactionRepository bookDocumentTransactionRepository;
+
+  @Transactional
+  public Flux<BookDocument> insertNewBook(String name, BigDecimal price){
+    BookDocument book = documentFactory.newBookDocument(
+        name, price, LocalDateTime.now()
+    );
+
+    return bookDocumentTransactionRepository.insert(book)
+        .flatMap(bookDocument -> {
+          BookDocument forSale = documentFactory.withSaleStatus(bookDocument, SaleStatus.FOR_SALE);
+          return bookDocumentTransactionRepository.save(forSale);
+        })
+        .thenMany(bookDocumentTransactionRepository.findAll());
+  }
+
+}
+```
+
+<br/>
+
+
+
+### 테스트 코드
+
+원래 제대로 작성하려면, 트랜잭션 코드 내에서 Unchecked Exception 이 일어나는 상황을 가정하고 일일이 테스트해야 하는데, 이번 문서의 목적이 비즈니스 로직 작성이 목적이 아니기에 세부적인 구현은 생략하고 단순한 동작테스트만 잘 되는지를 테스트 합니다.
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.transactional;
+
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument;
+import io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocumentService;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class BookDocumentTransactionalTest {
+  private static Logger log = LoggerFactory.getLogger(BookDocumentTransactionalTest.class);
+
+  @Autowired
+  private BookDocumentService sut;
+
+  @DisplayName("TEST_새로운_책을_트랜잭셔널_애노테이션을_이용해_저장_및_수정")
+  @Test
+  public void TEST_새로운_책을_트랜잭셔널_애노테이션을_이용해_저장_및_수정(){
+    // given
+
+    // when
+
+    // then
+    log.info("before save");
+    List<BookDocument> result = sut.insertNewBook("맛도리 여행", BigDecimal.valueOf(3000))
+        .toStream()
+        .collect(Collectors.toList());
+    log.info("after save, result = {}", result);
+  }
+}
+```
+
+<br/>
+
+
+
+출력결과
+
+```plain
+2024-04-01T11:28:56.126+09:00  INFO 497796 --- [main] .e.m.e.b.t.BookDocumentTransactionalTest : before save
+2024-04-01T11:28:56.633+09:00  INFO 497796 --- [main] .e.m.e.b.t.BookDocumentTransactionalTest : after save, result = [io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@1835b783, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@456b140f, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@2459333a, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@1e6bd367, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@2bd7f686, io.chagchagchag.example_mongo.mongodb_reactive_example.examples.book.BookDocument@3601549f]
+
+Process finished with exit code 0
+```
+
+<br/>
+
+
+
+## TransactionalOperator (1) : transactional() 사용방식
+
+Service
+
+```java
+```
+
+<br/>
+
+
+
+테스트
+
+```java
+```
+
+<br/>
+
+
+
+출력결과
+
+<br/>
+
+
+
+## TransactionalOperator (2) : execute() 사용방식
+
+Service
+
+```java
+
+```
+
+<br/>
+
+
+
+테스트
+
+```java
+
+```
+
+<br/>
+
+
+
+출력결과
+
+<br/>
+
+
+
+
+
