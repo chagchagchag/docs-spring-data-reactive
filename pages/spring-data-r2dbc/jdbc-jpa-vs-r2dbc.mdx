@@ -1,1 +1,30 @@
 ## JDBC, JPA 와의 차이점
+
+JDBC, JPA 는 블로킹 기반의 동기(Synchrnoization) 방식의 I/O 연산을 수행합니다. 데이터베이스에 접근해서 커넥션을 획득하고, CRUD 를 수행하기 위해서는 TCP 통신을 수행해야 하는데, JPA 는 JDBC 를 기반으로 이루어져있고 JDBC 는 TCP 통신을 블로킹 기반의 동기(Synchronization)방식으로 수행합니다.<br/>
+
+JDBC 는 굉장히 오래된 라이브러리입니다. AIO와 같은 Java 1.8 이후의 TCP 소켓 통신 스펙(비동기 논블로킹 네트워킹)이 적용되기에는 무리가 있는 라이브러리입니다. <br/>
+
+> 참고 : 블로킹, 논블로킹, 동기, 비동기에 대한 개념은 아래 문서를 참고해주세요.
+>
+> - [동기 vs 비동기](https://chagchagchag.github.io/docs-spring-webflux/concurrent-programming-basic/sync-vs-async/)
+>
+> - [블로킹 vs 논블로킹](https://chagchagchag.github.io/docs-spring-webflux/concurrent-programming-basic/blocking-vs-nonblocking/)
+
+<br/>
+
+
+
+**JPA 의 더티체킹**<br/>
+
+JPA 에서 흔히 이야기하는 Write Behind, 변경감지 개념은 r2dbc 환경에서 큰 장점이 되지 못합니다. Write Behind 를 한다는 이야기는 엔티티 캐시를 내부에 보관하고 있는다는 의미이고 다른말로 이야기하면 Mutable 하다는 이야기입니다.<br/>
+
+JPA 에서는 객체의 스냅샷 등을 통해 변경감지를 하는 등의 연산을 통해 엔티티의 변경을 감지하지만, R2DBC 로 넘어오면서 개별 데이터의 흐름을 Immutable 하게 처리하는 R2dbc 에서는 JPA 의 변경감지 기능이 더 이상 필요가 없어졌습니다. 다중 트랜잭션, 분산 트랜잭션 환경을 겪어본다면 더티체킹 개념보다는 이벤트의 트랜잭셔널함에 더 집중을 하게 됩니다.<br/>
+
+따라서 Jpa 의 더티체킹이 R2dbc 에서 지원이 안된다는 점에 실망하지 않으셔도 될 것 같습니다.<br/>
+
+<br/>
+
+
+
+
+
