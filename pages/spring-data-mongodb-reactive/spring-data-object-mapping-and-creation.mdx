@@ -292,10 +292,10 @@ public class Product {
 
 ## Spring Data MongoDB Reactive 에서의 암묵적인 매핑 규칙
 
-- id 필드가 없으면 내부적으로 리플렉션을 통해 id 필드를생성
+- `_id` 필드가 없으면 내부적으로 리플렉션을 통해 `_id` 필드를생성
 - id 필드에 `@Id` 가 안붙어있어도 필드명이 id 이면서 ObjectId 타입일 경우 `_id` 필드로 인식
-- 인자가 없는 기본생성자 무조건 하나 있어야 합니다.
-- Spring Data MongoDB Reactive 에서는 기본생성자가 private 접근 레벨로 정의되는 것이 허용됩니다.
+- 인자가 없는 기본생성자는 무조건 하나 있어야 합니다.
+- Spring Data MongoDB Reactive 에서는 기본생성자를 private 접근 레벨로 정의하는 것이 허용됩니다.
 - 만약 여러 인자를 받는 생성자를 정의하고 기본생성자가 없으면 에러가 나기 때문에 이 경우에는 반드시 기본생성자를 생성하셔야 합니다.
 - Spring Data MongoDB Reactive 에서는 enum 의 변환이 편리하고 실용적입니다.  Java → MongoDB 로의 교환시에는 enum 타입이 String 으로 변환되어 인식되며, MongoDB → Java 로의 교환시에는 String 이 Enum 으로 암묵적인 변환이 됩니다.
 - Spring Data MongoDB Reactive 에서 BigDecimal 을 사용할 경우 별도로 BigDecimal → Decimal128, Decimal128 → BigDecimal 로 Converting 을 하는 Converter 를 별도로 작성해주셔야 합니다. 제일 아래에 BigDecimal Converter 변환방법 섹션을 참고해주세요.
