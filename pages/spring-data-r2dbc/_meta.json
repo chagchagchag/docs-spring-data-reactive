@@ -9,5 +9,6 @@
     "query-methods": "Query Methods",
     "transactional-transactional-operator": "@Transactional, TransactionalOperator",
     "r2dbc-entity-operations": "R2dbcEntityOperations",
-    "r2dbc-entity-template": "R2dbcEntityTemplate"
+    "r2dbc-entity-template": "R2dbcEntityTemplate",
+    "example-mysql-docker-container": "예제 용도의 MySQL Docker Container"
 }

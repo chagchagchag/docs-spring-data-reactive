@@ -1,0 +1,42 @@
+## 예제 용도의 MySQL Docker Container
+이번 문서 작업에서 사용하는 예제에서 사용하는 MySQL 도커 컨테이너를 정의한 docker-compose 는 아래와 같습니다.<br/>
+
+```yaml
+version: '3.7'
+services:
+  example-mysql:
+    image: mysql:5.7.39-debian
+    restart: always
+    #    command: --lower_case_table_names=1
+    container_name: example-mysql
+    hostname: example-mysql
+    ports:
+      - "23306:3306"
+    environment:
+      - MYSQL_USER=user
+      - MYSQL_USER_HOST=%
+      - MYSQL_PASSWORD=test1357
+      - MYSQL_DATABASE=example
+      - MYSQL_ROOT_HOST=%
+      - MYSQL_ROOT_PASSWORD=test1357
+      - TZ=UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./init/:/docker-entrypoint-initdb.d/
+```
+<br/>
+
+구동은 아래와 같이 실행해주세요
+```bash
+docker-compose up -d
+```
+<br/>
+
+종료는 아래와 같이 실행해주세요.
+```bash
+docker-compose down
+```
+또는 Docker Desktop 에서 Stop & Delete 를 누르셔도 됩니다.<br/>
+<br/>
