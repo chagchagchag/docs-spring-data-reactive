@@ -3,7 +3,7 @@
     "jdbc-jpa-vs-r2dbc":"JDBC, JPA 와의 차이점",
     "r2dbc-drivers-r2dbc-spi": "R2DBC 드라이버, R2DBC SPI, Connection 설정",
     "simple-r2dbc-code": "R2DBC 기반 Raw 레벨 코드, Transaction",
-    "entity-mysql-data-mapping": "Entity, MySQL 타입 매핑",
+    "entity-mysql-type-mapping": "Entity, MySQL 타입 매핑",
     "spring-data-object-mapping-and-creation": "Spring Data Reactive 의 객체생성 방식과 필드 매핑방식",
     "r2dbc-repository": "R2dbcRepository",
     "query-methods": "Query Methods",
