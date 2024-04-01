@@ -286,7 +286,153 @@ public class Product {
 }
 ```
 
+<br/>
 
+
+
+## Spring Data MongoDB Reactive 에서의 암묵적인 매핑 규칙
+
+- id 필드가 없으면 내부적으로 리플렉션을 통해 id 필드를생성
+- id 필드에 `@Id` 가 안붙어있어도 필드명이 id 이면서 ObjectId 타입일 경우 `_id` 필드로 인식
+- 인자가 없는 기본생성자 무조건 하나 있어야 합니다.
+- Spring Data MongoDB Reactive 에서는 기본생성자가 private 접근 레벨로 정의되는 것이 허용됩니다.
+- 만약 여러 인자를 받는 생성자를 정의하고 기본생성자가 없으면 에러가 나기 때문에 이 경우에는 반드시 기본생성자를 생성하셔야 합니다.
+- Spring Data MongoDB Reactive 에서는 enum 의 변환이 편리하고 실용적입니다.  Java → MongoDB 로의 교환시에는 enum 타입이 String 으로 변환되어 인식되며, MongoDB → Java 로의 교환시에는 String 이 Enum 으로 암묵적인 변환이 됩니다.
+- Spring Data MongoDB Reactive 에서 BigDecimal 을 사용할 경우 별도로 BigDecimal → Decimal128, Decimal128 → BigDecimal 로 Converting 을 하는 Converter 를 별도로 작성해주셔야 합니다. 제일 아래에 BigDecimal Converter 변환방법 섹션을 참고해주세요.
+
+<br/>
+
+
+
+## 권장되는 방식
+
+Spring Data R2DBC, Spring Data MongoDB Reactive 모두 @PersistenceCreator 등과 같은 애노테이션을 사용하는 방식이 지원되지만, 이 기능이 버전마다 상이하기 때문에, Entity 또는 Document 객체를 생성하는 코드는 가급적 팩토리 메서드 또는 팩토리 메서드 들을 모아둔 컴포넌트에 별도로 정의해서 사용하시기 바랍니다.<br/>
+
+실무에서도 가급적이면 Entity 객체 생성하는 생성자 코드를 하드 코딩으로 접근하는 것은 위험합니다. 가급적 Entity 또는 Document 객체 생성시에는 Entity 내에는 AllArgsConstructor 하나만 두고, `*Factory.java` 라는 엔티티 객체 생성용도의 컴포넌트를 별도로 정의해서 사용하시기 바랍니다. 이렇게 하는 이유는 생성자 코드를 하드코딩으로 할 경우 비즈니스 변경로직 발생시 여기저기 우후죽순으로 퍼져있는 하드코딩된 생성자 코드를 일괄 수정할 방법이 없으며, 테스트에 취약하기 때문입니다. <br/>
+
+팩토리 역할의 컴포넌트를 생성하면 객체 생성의 테스트가 분담되기에 엔티티 코드에 비즈니스 내용이 간섭을 하지 않으며, 변경사항에 유연하게 대응이 가능하며, 메서드나 객체 명을 따로 지정해 용도별로 분리가 가능합니다.<br/>
+
+**"객체 생성을 하드코딩"**하는 로직들은 가급적이면 피하는 것이 좋습니다.<br/>
+
+<br/>
+
+
+
+### BigDecimalToDecimal128Converter.java
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.config;
+ 
+import java.math.BigDecimal;
+import org.bson.types.Decimal128;
+import org.springframework.core.convert.converter.Converter;
+ 
+public class BigDecimalToDecimal128Converter implements Converter<BigDecimal, Decimal128> {
+  @Override
+  public Decimal128 convert(BigDecimal source) {
+    return source == null ? null : new Decimal128(source);
+  }
+}
+```
+
+<br/>
+
+
+
+### Decimal128ToBigDecimalConverter.java
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.config;
+ 
+import java.math.BigDecimal;
+import org.bson.types.Decimal128;
+import org.springframework.core.convert.converter.Converter;
+ 
+public class Decimal128ToBigDecimalConverter implements Converter<Decimal128, BigDecimal> {
+  @Override
+  public BigDecimal convert(Decimal128 source) {
+    return source == null ? null : source.bigDecimalValue();
+  }
+}
+```
+
+<br/>
+
+
+
+### MongoReactiveConfiguration
+
+Converter 들을 등록하는 코드는 아래 코드에서 `MongoCustomConversions mongoCustomConversions(){}` 메서드를 참고해주시기 바랍니다.
+
+```java
+package io.chagchagchag.example_mongo.mongodb_reactive_example.examples.config;
+ 
+import com.mongodb.reactivestreams.client.MongoClient;
+import com.mongodb.reactivestreams.client.MongoClients;
+import java.math.BigDecimal;
+import java.util.Arrays;
+import org.bson.json.StrictJsonWriter;
+import org.bson.types.Decimal128;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.mongo.MongoProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
+import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.SimpleReactiveMongoDatabaseFactory;
+import org.springframework.data.mongodb.core.convert.MongoConverter;
+import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
+ 
+@Configuration
+public class MongoReactiveConfiguration {
+  @Value("${spring.data.mongodb.uri}")
+  private String mongoUri;
+ 
+  @Bean
+  public MongoClient reactiveMongoClient(){
+    return MongoClients.create(mongoUri);
+  }
+ 
+  @Bean
+  public ReactiveMongoTransactionManager transactionManager(
+      ReactiveMongoDatabaseFactory dbFactory
+  ){
+    return new ReactiveMongoTransactionManager(dbFactory);
+  }
+ 
+  @Bean(name = "helloworldReactiveMongoDatabaseFactory")
+  public SimpleReactiveMongoDatabaseFactory helloworldReactiveMongoDatabaseFactory(
+      MongoProperties mongoProperties,
+      MongoClient mongoClient
+  ){
+    // 이렇게 할 수도 있지만, 하나의 프로젝트에서 여러 몽고 database 를 사용할 수 있으므로 비활성화
+//    String database = mongoProperties.getMongoClientDatabase();
+    final String database = "helloworld";
+    return new SimpleReactiveMongoDatabaseFactory(mongoClient, database);
+  }
+ 
+  @Bean(name = "helloworldReactiveMongoTemplate")
+  public ReactiveMongoTemplate helloworldReactiveMongoTemplate(
+      ReactiveMongoDatabaseFactory helloworldReactiveMongoDatabaseFactory,
+      MongoConverter mongoConverter
+  ){
+    return new ReactiveMongoTemplate(helloworldReactiveMongoDatabaseFactory, mongoConverter);
+  }
+ 
+  // 여기를 참고해주세요.
+  @Bean
+  public MongoCustomConversions mongoCustomConversions(){
+    return new MongoCustomConversions(
+        Arrays.asList(
+            new BigDecimalToDecimal128Converter(),
+            new Decimal128ToBigDecimalConverter()
+        )
+    );
+  }
+ 
+}
+```
 
 
 
