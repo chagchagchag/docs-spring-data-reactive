@@ -1,1 +1,230 @@
 ## Entity, MySQL 타입 매핑
+
+## 참고자료
+
+docs.spring.io
+
+- https://docs.spring.io/spring-data/relational/reference/r2dbc/mapping.html
+
+asyncer-io/r2dbc-mysql
+
+- [github/asyncer-io/r2dbc-mysql](https://github.com/asyncer-io/r2dbc-mysql)
+- [Getting Started](https://github.com/asyncer-io/r2dbc-mysql/wiki/getting-started)
+- [Data Type Mapping](https://github.com/asyncer-io/r2dbc-mysql/wiki/data-type-mapping)
+
+<br/>
+
+
+
+## Entity 매핑 애노테이션
+
+- @Id : primary key 로 사용되는 필드에 지정합니다. auto-increment 가 지원되는 데이터베이스일 경우 DB에 데이터를 새로 저장한 후 생성된 기본키가 id 로 세팅됩니다.
+- @Table : entity 클래스에 적용하는 애노테이션입니다. Table 명을 별도로 지정할 수 있습니다.
+- @Transient : @Transient 가 붙은 필드는 mapping 에서 제외됩니다.
+- @Column : entity 의 property 에 적용하는 애노테이션입니다. @Column 이 붙은 필드는 convention 에 의존한 데이터 매핑이 아닌 @Column 애노테이션에 명시한 규칙이 적용됩니다.
+- @Version : Optimistic Lock 을 적용하고자 할 때 사용합니다. Entity 가 Update 될 때마다 자동으로 update 됩니다.
+- @PersistenceConstructor : 특정 생성자(Constructor)에 대해 객체 생성시 사용되게끔 지정합니다. constructor 의 argument 이름에 따라서 매핑됩니다.
+
+<br/>
+
+> 개인적으로는 실무에서 내부 인하우스 툴이 아닌 상용서비스에 사용할 것이면, @PersistenceConstructor 기반의 모호한 객체 생성 코드는 Entity 클래스에서는 가급적 사용하지 않는 것이 낫다고 생각합니다. <br/>
+>
+> Entity 클래스에는 AllArgsConstructor 만 남겨두고, 별도의 팩토리 메서드를 통해서만 엔티티 생성의 생성자를 호출하고 엔티티 객체 생성에 관여하도록 하는 것이 안전한 방법입니다.<br/>
+>
+> 팩토리 메서드를 모아둔 별도의 클래스에서 엔티티 객체를 생성하도록 해두면, Entity 측의 코드와 비즈니스 로직간의 변경에 대한 의존성이 떨어지기에 팩토리 메서드를 명확히 분류해서 따로 두시는 것을 추천드립니다.<br/>
+
+<br/>
+
+
+
+## MySQL Type 과 Java Type 매핑
+
+> 참고 : asyncer-io/r2dbc-mysql
+>
+> - [github/asyncer-io/r2dbc-mysql](https://github.com/asyncer-io/r2dbc-mysql)
+> - [Getting Started](https://github.com/asyncer-io/r2dbc-mysql/wiki/getting-started)
+> - [Data Type Mapping](https://github.com/asyncer-io/r2dbc-mysql/wiki/data-type-mapping)
+
+아래의 내용은 [Data Type Mapping](https://github.com/asyncer-io/r2dbc-mysql/wiki/data-type-mapping) 에 제시된 데이터 매핑을 발췌해온 내용입니다.<br/>
+
+### TINYINT UNSIGNED (1 Byte)
+
+- Default: [`Short`](https://docs.oracle.com/javase/8/docs/api/java/lang/Short.html)
+
+- Others: [`Integer`](https://docs.oracle.com/javase/8/docs/api/java/lang/Integer.html), [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html), [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+- Specials: [`Boolean`](https://docs.oracle.com/javase/8/docs/api/java/lang/Boolean.html) if it is `TINYINT(1) UNSIGNED`
+
+### TINYINT SIGNED (1 Byte)
+
+- Default: [`Byte`](https://docs.oracle.com/javase/8/docs/api/java/lang/Byte.html)
+
+- Others: [`Short`](https://docs.oracle.com/javase/8/docs/api/java/lang/Short.html), [`Integer`](https://docs.oracle.com/javase/8/docs/api/java/lang/Integer.html), [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html), [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+- Specials: [`Boolean`](https://docs.oracle.com/javase/8/docs/api/java/lang/Boolean.html) if it is `TINYINT(1) SIGNED`
+
+### SMALLINT UNSIGNED (2 Byte)
+
+- Default: [`Integer`](https://docs.oracle.com/javase/8/docs/api/java/lang/Integer.html)
+
+- Others: [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html), [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### SMALLINT SIGNED (2 Byte)
+
+- Default: [`Short`](https://docs.oracle.com/javase/8/docs/api/java/lang/Short.html)
+
+- Others: [`Integer`](https://docs.oracle.com/javase/8/docs/api/java/lang/Integer.html), [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html), [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### MEDIUMINT SIGNED/UNSIGNED (3 Byte)
+
+- Default: [`Integer`](https://docs.oracle.com/javase/8/docs/api/java/lang/Integer.html)
+
+- Others: [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html), [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### INT UNSIGNED (4 Byte)
+
+- Default: [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html)
+
+- Others: [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### INT SIGNED (4 Byte)
+
+- Default: [`Integer`](https://docs.oracle.com/javase/8/docs/api/java/lang/Integer.html)
+
+- Others: [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html), [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### BIGINT UNSIGNED (8 Byte)
+
+- Default: [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html)
+
+- Others: [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### BIGINT SIGNED (8 Byte)
+
+- Default: [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html)
+
+- Others: [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### FLOAT SIGNED/UNSIGNED (4 Byte)
+
+- Default: [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html)
+
+- Others: [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### DOUBLE SIGNED/UNSIGNED (8 Byte)
+
+- Default: [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html)
+
+- Others: [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### DECIMAL SIGNED/UNSIGNED
+
+- Default: [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+- Others: [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html)
+
+
+### BOOLEAN
+
+- It is an alias of `TINYINT(1) SIGNED` in MySQL.
+
+### BIT
+
+- Default: [`ByteBuffer`](https://docs.oracle.com/javase/8/docs/api/java/nio/ByteBuffer.html)
+
+- Others: [`BitSet`](https://docs.oracle.com/javase/8/docs/api/java/util/BitSet.html), `byte[]`
+
+- Specials: [`Boolean`](https://docs.oracle.com/javase/8/docs/api/java/lang/Boolean.html) if it is `BIT(1)`
+
+
+### DATETIME
+
+- Default: [`LocalDateTime`](https://docs.oracle.com/javase/8/docs/api/java/time/LocalDateTime.html)
+
+- Others: [`ZonedDateTime`](https://docs.oracle.com/javase/8/docs/api/java/time/ZonedDateTime.html), [`OffsetDateTime`](https://docs.oracle.com/javase/8/docs/api/java/time/OffsetDateTime.html), [`Instant`](https://docs.oracle.com/javase/8/docs/api/java/time/Instant.html)
+
+
+### TIMESTAMP
+
+- Default: [`ZonedDateTime`](https://docs.oracle.com/javase/8/docs/api/java/time/ZonedDateTime.html)
+
+- Others: [`LocalDateTime`](https://docs.oracle.com/javase/8/docs/api/java/time/LocalDateTime.html), [`OffsetDateTime`](https://docs.oracle.com/javase/8/docs/api/java/time/OffsetDateTime.html), [`Instant`](https://docs.oracle.com/javase/8/docs/api/java/time/Instant.html)
+
+
+### DATE
+
+- Default: [`LocalDate`](https://docs.oracle.com/javase/8/docs/api/java/time/LocalDate.html)
+
+### TIME
+
+- Default: [`LocalTime`](https://docs.oracle.com/javase/8/docs/api/java/time/LocalTime.html)
+
+- Others: [`Duration`](https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html), [`OffsetTime`](https://docs.oracle.com/javase/8/docs/api/java/time/OffsetTime.html)
+
+
+### YEAR
+
+- Default: [`Short`](https://docs.oracle.com/javase/8/docs/api/java/lang/Short.html)
+
+- Others: [`Integer`](https://docs.oracle.com/javase/8/docs/api/java/lang/Integer.html), [`Long`](https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html), [`BigInteger`](https://docs.oracle.com/javase/8/docs/api/java/math/BigInteger.html), [`Year`](https://docs.oracle.com/javase/8/docs/api/java/time/Year.html), [`Float`](https://docs.oracle.com/javase/8/docs/api/java/lang/Float.html), [`Double`](https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html), [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)
+
+
+### VARCHAR / NVARCHAR / CHAR / NCHAR
+
+- Default: [`String`](https://docs.oracle.com/javase/8/docs/api/java/lang/String.html)
+
+### VARBINARY
+
+- Default: [`ByteBuffer`](https://docs.oracle.com/javase/8/docs/api/java/nio/ByteBuffer.html)
+
+- Others: `byte[]`
+
+
+### ENUM
+
+- Default: [`String`](https://docs.oracle.com/javase/8/docs/api/java/lang/String.html)
+
+- Others: `enum` class
+
+
+### SET
+
+- Default: `String[]`
+
+- Others: [`String`](https://docs.oracle.com/javase/8/docs/api/java/lang/String.html)
+
+- Specials: [`Set`](https://docs.oracle.com/javase/8/docs/api/java/util/Set.html), require getting it with a [`ParameterizedType`](https://docs.oracle.com/javase/8/docs/api/java/lang/reflect/ParameterizedType.html), `T` should be [`String`](https://docs.oracle.com/javase/8/docs/api/java/lang/String.html) or an `enum` class
+
+
+### BLOB / LONGBLOB / MEDIUMBLOB / TINYBLOB
+
+- Default: [`ByteBuffer`](https://docs.oracle.com/javase/8/docs/api/java/nio/ByteBuffer.html)
+
+- Others: [`Blob`](https://javadoc.io/static/io.r2dbc/r2dbc-spi/1.0.0.RELEASE/io/r2dbc/spi/Blob.html), `byte[]`
+
+
+### TEXT / LONGTEXT / MEDIUMTEXT / TINYTEXT / JSON
+
+- Default: [`String`](https://docs.oracle.com/javase/8/docs/api/java/lang/String.html)
+
+- Others: [`Clob`](https://javadoc.io/static/io.r2dbc/r2dbc-spi/1.0.0.RELEASE/io/r2dbc/spi/Clob.html)
+
+- The `JSON` in some distributions is an alias for `TEXT`.
+
+
+### GEOMETRY
+
+- Default: `byte[]`
+
+- Others: [`Blob`](https://javadoc.io/static/io.r2dbc/r2dbc-spi/1.0.0.RELEASE/io/r2dbc/spi/Blob.html)
+
+
