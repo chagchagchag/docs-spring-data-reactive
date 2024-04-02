@@ -1,1 +1,41 @@
 ## R2dbcEntityTemplate, R2dbcEntityOperations
+
+
+
+## Overview
+
+
+
+![](./img/r2dbc-entity-template-r2dbc-entity-operations/hierarchy.png)
+
+
+
+<br/>
+
+## FluentR2dbcOperations
+
+### insert 쿼리 (ReactiveInsertOperation)
+
+### select 쿼리 (ReactiveSelectOperation)
+
+### update 쿼리 (ReactiveUpdateOperation)
+
+### delete 쿼리 (ReactiveDeleteOperation)
+
+
+
+## R2dbcEntityOperations
+
+[R2dbcEntityOperations](https://docs.spring.io/spring-data/r2dbc/docs/current/api/org/springframework/data/r2dbc/core/R2dbcEntityOperations.html) 는 위에서 살펴본 FluentR2dbcOperations 에서 제공하는 insert, select, update, delete 연산에 대한 Operation 들 외에도 다양한 종류의 쿼리를 수행할 수 있도록 다양한 메서드 들을 제공하고 있습니다.
+
+- count (Query, Class\<?\> entityClass)
+- delete (Query, Class\<?\> entityClass), delete (T)
+- exists (Query, Class\<?\> entityClass)
+- insert (T)
+- select (Query, Class\<?\> entityClass)
+- selectOne (Query, Class\<?\> entityClass)
+- update (Query, Class\<?\> entityClass), update (T)
+- query (PreparedOperation\<?\> operation, Class\<?\> entityClass, Class \<T\> resultType) 및 다양한 오버로딩 된 query(...) 메서드 들
+
+
+
