@@ -1,1 +1,599 @@
 ## Query Methods
+
+Repository 에서 지원하는 Query Method, @Query 에 대해서 알아봅니다. 비교적 간단한 쿼리는 Query Method 를 사용해서 구현이 가능하지만, 메서드의 이름이 길어진다는 단점과, 유연한 쿼리 작성은 쉽지 않다는 단점이 있습니다. <br/>
+
+복잡하고 정교한 쿼리 작성이 필요하다면 QueryMethod 보다는 `@Query` 를 사용하거나  R2dbcEntityTemplate, R2dbcOperations 를 이용해서 SQL 을 풍부하게 활용하시길 추천드립니다.<br/>
+
+<br/>
+
+
+
+## 참고
+
+### mysql 구동 환경
+
+보통 테스트 코드 작성시 testcontainers 를 사용하는 편이지만, 이번 예제 문서에서는 예제의 단순함을 위해 testcontainers 대신 mysql docker 이미지를 로컬에 컨테이너로 구동하는 환경을 사용합니다.<br/>
+
+mysql docker-compose 파일은 아래와 같습니다.
+
+```yaml
+version: '3.7'
+services:
+  example-mysql:
+    image: mysql:5.7.39-debian
+    restart: always
+    #    command: --lower_case_table_names=1
+    container_name: example-mysql
+    hostname: example-mysql
+    ports:
+      - "23306:3306"
+    environment:
+      - MYSQL_USER=user
+      - MYSQL_USER_HOST=%
+      - MYSQL_PASSWORD=test1357
+      - MYSQL_DATABASE=example
+      - MYSQL_ROOT_HOST=%
+      - MYSQL_ROOT_PASSWORD=test1357
+      - TZ=UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./init/:/docker-entrypoint-initdb.d/
+```
+
+<br/>
+
+
+
+## R2dbcMySqlConfig
+
+```java
+package io.chagchagchag.example.r2dbc_example.config;
+
+import io.asyncer.r2dbc.mysql.MySqlConnectionConfiguration;
+import io.asyncer.r2dbc.mysql.MySqlConnectionFactory;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.r2dbc.connection.R2dbcTransactionManager;
+import org.springframework.r2dbc.connection.init.ConnectionFactoryInitializer;
+import org.springframework.r2dbc.connection.init.ResourceDatabasePopulator;
+import org.springframework.transaction.ReactiveTransactionManager;
+
+@Configuration
+public class R2dbcMySqlConfig {
+
+  @Bean
+  public MySqlConnectionFactory mySqlConnectionFactory(){
+    MySqlConnectionConfiguration config = MySqlConnectionConfiguration.builder()
+        .host("localhost")
+        .port(23306)
+        .username("user").password("test1357")
+        .database("example")
+        .build();
+
+    return MySqlConnectionFactory.from(config);
+  }
+
+  @Bean
+  public ReactiveTransactionManager transactionManager(MySqlConnectionFactory connectionFactory){
+    return new R2dbcTransactionManager(connectionFactory);
+  }
+
+  @Bean
+  public ConnectionFactoryInitializer initializer(MySqlConnectionFactory connectionFactory){
+    ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
+    initializer.setConnectionFactory(connectionFactory);
+    ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+    initializer.setDatabasePopulator(populator);
+    return initializer;
+  }
+
+}
+```
+
+<br/>
+
+
+
+## 예제 데이터
+
+### author 테이블
+
+예제 용도의 간단한 작가 데이터를 담는 테이블입니다.<br/>
+
+```sql
+CREATE TABLE IF NOT EXISTS example.book
+(
+    id           bigint auto_increment
+        primary key,
+    name         varchar(30) not null
+) default character set utf8 collate utf8_general_ci;
+```
+
+<br/>
+
+샘플 데이터
+
+```sql
+INSERT INTO example.author(name)
+VALUES
+    ('찰스'),
+    ('1박2일 편집부'),
+    ('생로병사 편집부'),
+    ('EBS'),
+    ('내셔널지오그래픽');
+```
+
+<br/>
+
+
+
+### book 테이블
+
+예제 용도의 간단한 책 데이터를 담는 테이블입니다.<br/>
+
+정규화를 제대로 한다면 `sale_status` , `price`, `published_at`  컬럼은 각각 별도의 테이블에서 관리하게끔 정규화를 하는 것이 맞습니다. 다만, 아래 테이블은 짧은 문서 내에서 다양한 쿼리를 수행해보기 위한 것이 목적이기에 정규화가 이루어져있지 않더라도 조금이나마 양해를 부탁드립니다.
+
+```sql
+create table example.book
+(
+    id           bigint auto_increment
+        primary key,
+    name         varchar(30) not null,
+    price        bigint      null,
+    published_at datetime    null,
+    sale_status  varchar(11) not null
+) default character set utf8 collate utf8_general_ci;
+```
+
+<br/>
+
+샘플 데이터
+
+```sql
+INSERT INTO example.book(
+    name, price, published_at, sale_status
+) VALUES
+('바람과 함께 사라지다', 11000, '1950-01-01 00:00:00', 'SOLD_OUT'),
+('바람과 함께 사라지다', 12000, '1950-01-02 00:00:00', 'SOLD_OUT'),
+('바람과 함께 사라지다', 13000, '1950-01-03 00:00:00', 'FOR_SALE'),
+('바람과 함께 사라지다', 14000, '1950-01-04 00:00:00', 'FOR_SALE'),
+('바람과 함께 사라지다', 15000, '1950-01-05 00:00:00', 'FOR_SALE')
+;
+```
+
+<br/>
+
+
+
+## find 연산들
+
+간단한 몇몇 예제를 확인해봅니다.<br/>
+
+### e.g. 1 : 가격이 가장 높은 책을 조회
+
+Repository 코드
+
+```java
+package io.chagchagchag.example.r2dbc_example.repository;
+
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
+import reactor.core.publisher.Mono;
+
+public interface BookFindRepository extends ReactiveSortingRepository<Book, Long> {
+  Mono<Book> findFirstByNameOrderByPriceDesc(String name);
+}
+```
+
+<br/>
+
+
+
+Test
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+// ...
+
+@SpringBootTest
+public class BookFindRepositoryExampleTest {
+  private Logger log = LoggerFactory.getLogger(BookFindRepositoryExampleTest.class);
+
+  @Autowired
+  private BookFindRepository bookFindRepository;
+
+  @DisplayName("QUERY_METHOD__가격이_가장_높은_책을_조회")
+  @Test
+  public void TEST_QUERY_METHOD__가격이_가장_높은_책을_조회(){
+    // given
+
+    // when
+
+    // then
+    Book book = bookFindRepository
+        .findFirstByNameOrderByPriceDesc("바람과 함께 사라지다")
+        .block();
+
+    log.info("book.name = {}", book.getName());
+    log.info("book.name = {}", book.getPrice());
+    log.info("book.name = {}", book.getSaleStatus());
+  }
+
+}
+```
+
+<br/>
+
+
+
+출력결과
+
+```plain
+2024-04-02T12:18:17.540+09:00  INFO [main] i.c.e.r.b.BookFindRepositoryExampleTest  : book.name = 바람과 함께 사라지다
+2024-04-02T12:18:17.542+09:00  INFO [main] i.c.e.r.b.BookFindRepositoryExampleTest  : book.name = 15000
+2024-04-02T12:18:17.542+09:00  INFO [main] i.c.e.r.b.BookFindRepositoryExampleTest  : book.name = FOR_SALE
+```
+
+<br/>
+
+
+
+### e.g. 2: 객체 프로젝션 테스트
+
+Repository 코드
+
+```java
+package io.chagchagchag.example.r2dbc_example.repository;
+
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
+import reactor.core.publisher.Mono;
+
+public interface BookFindRepository extends ReactiveSortingRepository<Book, Long> {
+  // ...
+  Mono<BookName> findFirstByNameOrderByPublishedAtDesc(String name);
+}
+```
+
+<br/>
+
+
+
+Test 
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.Book;
+import io.chagchagchag.example.r2dbc_example.repository.BookFindRepository;
+import io.chagchagchag.example.r2dbc_example.repository.BookName;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class BookFindRepositoryExampleTest {
+  private Logger log = LoggerFactory.getLogger(BookFindRepositoryExampleTest.class);
+
+  @Autowired
+  private BookFindRepository bookFindRepository;
+  
+  // ...
+    
+  @DisplayName("QUERY_METHOD__가장_최근에_출간된_책의_이름을_조회")
+  @Test
+  public void TEST_QUERY_METHOD__가장_최근에_출간된_책의_이름을_조회(){
+    // given
+
+    // when
+
+    // then
+    BookName book = bookFindRepository
+        .findFirstByNameOrderByPublishedAtDesc("바람과 함께 사라지다")
+        .block();
+
+    log.info("book.name = {}", book.name());
+  }
+
+
+}
+```
+
+<br/>
+
+
+
+출력결과
+
+```plain
+2024-04-02T12:33:03.460+09:00  INFO [main] i.c.e.r.b.BookFindRepositoryExampleTest  : book.name = 바람과 함께 사라지다
+
+Process finished with exit code 0
+```
+
+<br/>
+
+
+
+## delete 연산들
+
+### e.g. 1 : SaleStatus 가 HOLD 이면서, 가격이 11000 원 이상인 책을 삭제
+
+Repository
+
+```java
+package io.chagchagchag.example.r2dbc_example.repository;
+
+import java.math.BigDecimal;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import reactor.core.publisher.Mono;
+
+public interface BookDeleteRepository extends ReactiveCrudRepository<Book, Long> {
+  Mono<Long> deleteBySaleStatusAndPriceGreaterThan(SaleStatus saleStatus, BigDecimal price);
+}
+
+```
+
+<br/>
+
+
+
+Test
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.Book;
+import io.chagchagchag.example.r2dbc_example.repository.BookDeleteRepository;
+import io.chagchagchag.example.r2dbc_example.repository.SaleStatus;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class BookDeleteRepositoryExampleTest {
+  private final Logger log = LoggerFactory.getLogger(BookDeleteRepositoryExampleTest.class);
+  
+  @Autowired
+  private BookDeleteRepository bookDeleteRepository;
+  
+  @DisplayName("QUERY_METHOD__SALE_STATUS_가_HOLD_이면서_11000원_이상인_책을_삭제")
+  @Test
+  public void TEST_QUERY_METHOD__SALE_STATUS_가_HOLD_이면서_11000원_이상인_책을_삭제(){
+    // given
+    
+    // when
+    
+    // then
+    Long count = bookDeleteRepository
+        .deleteBySaleStatusAndPriceGreaterThan(SaleStatus.HOLD, BigDecimal.valueOf(11000))
+        .block();
+
+    log.info("count = {}", count);
+  }
+  
+}
+```
+
+<br/>
+
+
+
+출력결과
+
+```plain
+2024-04-02T12:46:01.004+09:00  INFO [main] .c.e.r.b.BookDeleteRepositoryExampleTest : count = 1
+```
+
+<br/>
+
+
+
+### e.g. 2 : SaleStatus 가 HOLD 인 모든 책을 삭제
+
+Repository
+
+```java
+package io.chagchagchag.example.r2dbc_example.repository;
+
+import java.math.BigDecimal;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import reactor.core.publisher.Mono;
+
+public interface BookDeleteRepository extends ReactiveCrudRepository<Book, Long> {
+  // ...
+  Mono<Long> deleteBySaleStatus(SaleStatus saleStatus);
+}
+
+```
+
+<br/>
+
+
+
+Test
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.Book;
+import io.chagchagchag.example.r2dbc_example.repository.BookDeleteRepository;
+import io.chagchagchag.example.r2dbc_example.repository.SaleStatus;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class BookDeleteRepositoryExampleTest {
+  private final Logger log = LoggerFactory.getLogger(BookDeleteRepositoryExampleTest.class);
+  
+  @Autowired
+  private BookDeleteRepository bookDeleteRepository;
+  
+  // ...
+  
+  @DisplayName("QUERY_METHOD__SALE_STATUS_가_HOLD_인_모든_책을_삭제")
+  @Test
+  public void TEST_QUERY_METHOD__SALE_STATUS_가_HOLD_인_모든_책을_삭제(){
+    // given
+
+    // when
+    Long count = bookDeleteRepository
+        .deleteBySaleStatus(SaleStatus.HOLD)
+        .block();
+
+    // then
+    log.info("count = {}", count);
+  }
+
+  
+}
+```
+
+<br/>
+
+
+
+출력결과
+
+```plain
+2024-04-02T12:51:09.573+09:00  INFO [main] .c.e.r.b.BookDeleteRepositoryExampleTest : count = 1
+
+Process finished with exit code 0
+```
+
+<br/>
+
+
+
+## @Query
+
+SQL 을 Java 문자열로 변환하는 것은 [dpriver.com/pp/sqlformat.htm](https://www.dpriver.com/pp/sqlformat.htm) 에서 Database = MySQL, Output = `Java` 로 세팅 후 Convert 버튼을 클릭하면 간편하게 변환이 가능합니다.<br/>
+
+<br/>
+
+
+
+### e.g. 1: 간단한 inner join 예제
+
+예제로는 간단한 inner join 쿼리 하나를 살펴보겠습니다.<br/>
+
+Repository
+
+```java
+package io.chagchagchag.example.r2dbc_example.repository;
+
+import org.springframework.data.r2dbc.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
+import reactor.core.publisher.Flux;
+
+public interface BookQueryRepository extends ReactiveSortingRepository<Book, Long> {
+  @Query(
+      "SELECT b.*, a.name as author_name "
+    + "FROM book b "
+    + "INNER JOIN author a "
+    + "    ON b.author_id = a.id "
+    + "WHERE b.sale_status = :saleStatus"
+  )
+  Flux<BookAuthor> findBookBySaleStatusQuery(@Param("saleStatus") SaleStatus saleStatus);
+}
+```
+
+<br/>
+
+
+
+BookName.java<br/>
+
+Join 결과를 담을 객체입니다. record 로 선언된 클래스입니다.
+
+```java
+package io.chagchagchag.example.r2dbc_example.repository;
+
+public record BookName(
+    String name
+) {
+}
+```
+
+<br/>
+
+
+
+Test
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.BookAuthor;
+import io.chagchagchag.example.r2dbc_example.repository.BookQueryRepository;
+import io.chagchagchag.example.r2dbc_example.repository.SaleStatus;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class BookQueryRepositoryExampleTest {
+  private final static Logger log = LoggerFactory.getLogger(BookQueryRepositoryExampleTest.class);
+
+  @Autowired
+  private BookQueryRepository bookQueryRepository;
+
+  @DisplayName("QUERY_METHOD__FOR_SALE_상태의_책을_조회")
+  @Test
+  public void TEST_QUERY_METHOD__FOR_SALE_상태의_책을_조회(){
+    // given
+
+    // when
+
+    // then
+    List<BookAuthor> bookAuthors = bookQueryRepository
+        .findBookBySaleStatusQuery(SaleStatus.FOR_SALE)
+        .toStream()
+        .collect(Collectors.toList());
+
+    bookAuthors.forEach(bookAuthor -> {
+      log.info("bookAuthor = "+ bookAuthor);
+    });
+  }
+
+
+}
+```
+
+<br/>
+
+
+
+출력결과
+
+```plain
+2024-04-02T14:11:12.979+09:00  INFO [main] i.c.e.r.b.BookQueryRepositoryExampleTest : bookAuthor = BookAuthor[id=3, name=바람과 함께 사라지다, price=13000, publishedAt=1950-01-03T00:00, saleStatus=FOR_SALE, authorName=생로병사 편집부]
+2024-04-02T14:11:12.979+09:00  INFO [main] i.c.e.r.b.BookQueryRepositoryExampleTest : bookAuthor = BookAuthor[id=4, name=바람과 함께 사라지다, price=14000, publishedAt=1950-01-04T00:00, saleStatus=FOR_SALE, authorName=EBS]
+2024-04-02T14:11:12.979+09:00  INFO [main] i.c.e.r.b.BookQueryRepositoryExampleTest : bookAuthor = BookAuthor[id=5, name=바람과 함께 사라지다, price=15000, publishedAt=1950-01-05T00:00, saleStatus=FOR_SALE, authorName=내셔널지오그래픽]
+
+Process finished with exit code 0
+```
+
