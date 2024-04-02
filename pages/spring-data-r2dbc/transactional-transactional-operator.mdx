@@ -95,12 +95,18 @@ INSERT INTO example.book(
 ```yaml
 logging:
   level:
+    org.springframework.transaction.reactive: TRACE
     org.springframework.transaction.interceptor: TRACE
     org.springframework.transaction.ReactiveTransactionManager: TRACE
     org.springframework.transaction.reactive.TransactionalOperator: TRACE
+    org.springframework.transaction.reactive.TransactionalOperatorImpl: TRACE
     org.springframework.transaction.reactive.TransactionSynchronizationManager: TRACE
     org.springframework.transaction.reactive.TransactionCallback: TRACE
     org.springframework.transaction.reactive.TransactionContextManager: TRACE
+    io.asyncer.r2dbc.mysql.QUERY: trace
+    io.asyncer.r2dbc.mysql.MySqlConnection: trace
+#    io.asyncer.r2dbc.mysql.client: trace
+    org.springframework.r2dbc.connection.R2dbcTransactionManager: TRACE
 ```
 
 <br/>
@@ -250,7 +256,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import reactor.core.publisher.Flux;
 
 @SpringBootTest
 public class BookSaveRepositoryExampleTest {
@@ -270,7 +275,7 @@ public class BookSaveRepositoryExampleTest {
     // then
     log.info("save start >>> ");
     List<Book> result = bookService
-        .insertNewBook("글루코스 혁명", BigDecimal.valueOf(2000), 1L)
+        .insertNewBook("생각이 너무 많은 어른들을 위한 심리학", BigDecimal.valueOf(2000), 1L)
         .toStream()
         .collect(Collectors.toList());
     log.info("save end <<< ");
@@ -283,7 +288,124 @@ public class BookSaveRepositoryExampleTest {
       );
     });
   }
+}
+```
 
+<br/>
+
+
+
+### 출력결과
+
+출력결과를 보면 Transaction 이 정상적으로 수행됨을 확인 가능합니다.
+
+![](./img/transactional-transactional-operator/transactional-annotation-log.png)
+
+<br/>
+
+
+
+## TransactionalOperator (1) : transactional() 
+
+이번에는 TransactionalOperator 의 transactional() 메서드를 이용해서 트랜잭션을 처리하는 코드입니다.<br/>
+
+### BookService.java
+
+```java
+package io.chagchagchag.example.r2dbc_example.service;
+
+import static io.chagchagchag.example.r2dbc_example.repository.type.SaleStatus.FOR_SALE;
+
+import io.chagchagchag.example.r2dbc_example.repository.BookSaveRepository;
+import io.chagchagchag.example.r2dbc_example.repository.entity.Book;
+import io.chagchagchag.example.r2dbc_example.repository.factory.BookFactory;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import reactor.core.publisher.Flux;
+
+@Slf4j
+@RequiredArgsConstructor
+@Service
+public class BookService {
+  private final BookSaveRepository bookSaveRepository;
+  private final BookFactory bookFactory;
+  private final TransactionalOperator transactionalOperator;
+
+  // ...
+  
+  public Flux<Book> insertNewBookTransactionalOperator1(String name, BigDecimal price, Long authorId){
+    Book newBook = bookFactory.newBook(name, price, LocalDateTime.now(), authorId);
+    Flux<Book> flux = bookSaveRepository.save(newBook)
+        .flatMap(book -> {
+          Book forSale = bookFactory.withSaleStatus(book, FOR_SALE);
+          return bookSaveRepository.save(forSale);
+        })
+        .thenMany(bookSaveRepository.findAll());
+    return transactionalOperator.transactional(flux);
+  }
+  
+  // ...
+}
+```
+
+<br/>
+
+
+
+### 테스트 코드
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.entity.Book;
+import io.chagchagchag.example.r2dbc_example.service.BookService;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class BookSaveRepositoryExampleTest {
+  private final Logger log = LoggerFactory.getLogger(BookSaveRepositoryExampleTest.class);
+
+  @Autowired
+  private BookService bookService;
+  
+  // ...
+
+  @DisplayName("TEST_트랜잭셔널_오퍼레이터의_transactional_메서드로_트랜잭션_수행")
+  @Test
+  public void TEST_트랜잭셔널_오퍼레이터의_transactional_메서드로_트랜잭션_수행(){
+    // given
+
+    // when
+
+    // then
+    log.info("save start >>> ");
+    List<Book> result = bookService
+        .insertNewBookTransactionalOperator1("ETS 토익 정기시험 기출문제집", BigDecimal.valueOf(2000), 1L)
+        .toStream()
+        .collect(Collectors.toList());
+    log.info("save end <<< ");
+
+
+    log.info("after result >>> ");
+    result.forEach(book -> {
+      log.info("book.name = {}, book.price ={}, book.saleStatus = {}, book.authorId = {}",
+          book.getName(), book.getPrice(), book.getSaleStatus(), book.getAuthorId()
+      );
+    });
+  }
 
 }
 ```
@@ -294,25 +416,118 @@ public class BookSaveRepositoryExampleTest {
 
 ### 출력결과
 
-출력결과를 보면 아래의 두 문구를 통해서 Transaction 이 수행됨을 확인 가능합니다.
+![](./img/transactional-transactional-operator/transactional-operator-transational-log.png)
 
-- `o.s.t.i.TransactionInterceptor : Getting transaction for [io.chagchagchag.example.r2dbc_example.service.BookService.insertNewBook]` 
-- `o.s.t.i.TransactionInterceptor : Completing transaction for [io.chagchagchag.example.r2dbc_example.service.BookService.insertNewBook]`
+<br/>
 
-```plain
-2024-04-02T16:20:47.174+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : save start >>> 
-2024-04-02T16:20:47.222+09:00 TRACE 744624 --- [r2dbc_example] [actor-tcp-nio-3] o.s.t.i.TransactionInterceptor           : Getting transaction for [io.chagchagchag.example.r2dbc_example.service.BookService.insertNewBook]
-2024-04-02T16:20:47.342+09:00 TRACE 744624 --- [r2dbc_example] [actor-tcp-nio-3] o.s.t.i.TransactionInterceptor           : Completing transaction for [io.chagchagchag.example.r2dbc_example.service.BookService.insertNewBook]
-2024-04-02T16:20:47.352+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : save end <<< 
-2024-04-02T16:20:47.353+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : after result >>> 
-2024-04-02T16:20:47.353+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : book.name = 바람과 함께 사라지다, book.price =11000, book.saleStatus = HOLD, book.authorId = 1
-2024-04-02T16:20:47.354+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : book.name = 바람과 함께 사라지다, book.price =12000, book.saleStatus = HOLD, book.authorId = 2
-2024-04-02T16:20:47.355+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : book.name = 바람과 함께 사라지다, book.price =13000, book.saleStatus = FOR_SALE, book.authorId = 3
-2024-04-02T16:20:47.355+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : book.name = 바람과 함께 사라지다, book.price =14000, book.saleStatus = FOR_SALE, book.authorId = 4
-2024-04-02T16:20:47.355+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : book.name = 바람과 함께 사라지다, book.price =15000, book.saleStatus = FOR_SALE, book.authorId = 5
-2024-04-02T16:20:47.355+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : book.name = 맛도리여행, book.price =2000, book.saleStatus = FOR_SALE, book.authorId = 1
-2024-04-02T16:20:47.355+09:00  INFO [main] i.c.e.r.b.BookSaveRepositoryExampleTest  : book.name = 글루코스 혁명, book.price =2000, book.saleStatus = FOR_SALE, book.authorId = 1
 
-Process finished with exit code 0
+
+## TransactionalOperator (2) : execute() 
+
+### BookService.java
+
+```java
+package io.chagchagchag.example.r2dbc_example.service;
+
+import static io.chagchagchag.example.r2dbc_example.repository.type.SaleStatus.FOR_SALE;
+
+import io.chagchagchag.example.r2dbc_example.repository.BookSaveRepository;
+import io.chagchagchag.example.r2dbc_example.repository.entity.Book;
+import io.chagchagchag.example.r2dbc_example.repository.factory.BookFactory;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import reactor.core.publisher.Flux;
+
+@Slf4j
+@RequiredArgsConstructor
+@Service
+public class BookService {
+  private final BookSaveRepository bookSaveRepository;
+  private final BookFactory bookFactory;
+  private final TransactionalOperator transactionalOperator;
+    
+  // ...
+
+  public Flux<Book> insertNewBookTransactionalOperator2(String name, BigDecimal price, Long authorId){
+    Book newBook = bookFactory.newBook(name, price, LocalDateTime.now(), authorId);
+    Flux<Book> flux = bookSaveRepository.save(newBook)
+        .flatMap(book -> {
+          Book forSale = bookFactory.withSaleStatus(book, FOR_SALE);
+          return bookSaveRepository.save(forSale);
+        })
+        .thenMany(bookSaveRepository.findAll());
+    return transactionalOperator.execute(status -> flux);
+  }
+
+}
 ```
+
+<br/>
+
+
+
+### 테스트 코드
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.entity.Book;
+import io.chagchagchag.example.r2dbc_example.service.BookService;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+public class BookSaveRepositoryExampleTest {
+  private final Logger log = LoggerFactory.getLogger(BookSaveRepositoryExampleTest.class);
+
+  @Autowired
+  private BookService bookService;
+  
+  // ...
+
+  @DisplayName("TEST_트랜잭셔널_오퍼레이터의_execute_메서드로_트랜잭션_수행")
+  @Test
+  public void TEST_트랜잭셔널_오퍼레이터의_execute_메서드로_트랜잭션_수행(){
+    // given
+
+    // when
+
+    // then
+    log.info("save start >>> ");
+    List<Book> result = bookService
+        .insertNewBookTransactionalOperator2("퓨처 셀프", BigDecimal.valueOf(2000), 1L)
+        .toStream()
+        .collect(Collectors.toList());
+    log.info("save end <<< ");
+
+
+    log.info("after result >>> ");
+    result.forEach(book -> {
+      log.info("book.name = {}, book.price ={}, book.saleStatus = {}, book.authorId = {}",
+          book.getName(), book.getPrice(), book.getSaleStatus(), book.getAuthorId()
+      );
+    });
+  }
+}
+```
+
+<br/>
+
+
+
+### 출력결과
+
+![](./img/transactional-transactional-operator/transactional-operator-execute-log.png)
 
