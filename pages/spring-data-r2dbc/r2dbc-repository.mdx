@@ -1,1 +1,8 @@
 ## R2dbcRepository
+
+JPA 에서 흔히 사용하던 Repository 와 유사하게 R2dbc 에서도 Repository 기반의 Data 접근 계층의 코드를 작성하는 것이 가능합니다. 
+
+![](./img/r2dbc-repository/hierarchy.png)
+
+[ReactiveMongoRepository 문서](https://chagchagchag.github.io/docs-spring-data-reactive/spring-data-mongodb-reactive/reactive-mongo-repository/) 에서 살펴봤던 상속 계층도에서 R2dbcRepository 와 SimpleR2dbcRepository 만 다르고 계층도가 비슷하며, SimpleR2dbcRepository 클래스 역시 아래의 Repository 들을 implements 하고 있다는 사실을 알 수 있습니다.
+
