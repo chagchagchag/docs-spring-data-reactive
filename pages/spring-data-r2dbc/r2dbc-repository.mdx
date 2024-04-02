@@ -4,9 +4,24 @@ JPA 에서 흔히 사용하던 Repository 와 유사하게 R2dbc 에서도 Repos
 
 ![](./img/r2dbc-repository/hierarchy.png)
 
-[ReactiveMongoRepository 문서](https://chagchagchag.github.io/docs-spring-data-reactive/spring-data-mongodb-reactive/reactive-mongo-repository/) 에서 살펴봤던 상속 계층도에서 R2dbcRepository 와 SimpleR2dbcRepository 만 다르고 계층도가 비슷합니다. 
+[ReactiveMongoRepository 문서](https://chagchagchag.github.io/docs-spring-data-reactive/spring-data-mongodb-reactive/reactive-mongo-repository/) 에서 살펴봤던 상속 계층도에서 R2dbcRepository 와 SimpleR2dbcRepository 만 다르고 계층도가 비슷합니다.<br/>
 
-- ReactiveCrudRepository\<T,ID\>
-- ReactiveQueryByExampleExecutor\<T\>
-- ReactiveSortingRepository\<T,ID\>
-- Repository\<T,ID\>
+
+
+참고
+
+- [SimpleR2dbcRepository\<T,ID\>](https://docs.spring.io/spring-data/r2dbc/docs/current/api/org/springframework/data/r2dbc/repository/support/SimpleR2dbcRepository.html)
+
+- [ReactiveCrudRepository\<T,ID\>](https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/repository/reactive/ReactiveCrudRepository.html)
+- [ReactiveQueryByExampleExecutor\<T\>](https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/repository/query/ReactiveQueryByExampleExecutor.html)
+- [ReactiveSortingRepository\<T,ID\>](https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/repository/reactive/ReactiveSortingRepository.html)
+- [Repository\<T,ID\>](https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/repository/Repository.html)
+
+<br/>
+
+
+
+## Component Scan
+
+## SimpleReactiveR2dbcRepository
+
