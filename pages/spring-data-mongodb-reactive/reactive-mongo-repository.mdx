@@ -30,6 +30,9 @@ MongoDB의 쿼리를 작성할 때 spring data mongodb 의 repository 를 기반
 MongoDB와 R2DBC 를 함께 사용하는 경우 아래와 같은 방식으로 설정을 해줍니다. 
 
 ```java
+@EnableR2dbcRepositories(
+    basePackages = {"..."}
+)
 @EnableReactiveMongoRepositories(
     basePackages = "io.chagchagchag.example.example_mongo.repository",
     reactiveMongoTemplateRef = "reactiveMongoTemplate"
