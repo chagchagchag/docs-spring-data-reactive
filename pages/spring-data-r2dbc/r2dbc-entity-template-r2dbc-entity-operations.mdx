@@ -1,5 +1,7 @@
 ## R2dbcEntityTemplate, R2dbcEntityOperations
 
+R2dbcEntityTemplate 은 R2dbcEntityOperations 를 implements 하고 있으며, R2dbcEntityOperation 은 기본적으로 필요한 SQL query 들을 메서드로 제공합니다. 그리고 R2dbcEntityOperation 은 FluentR2dbcOperations 를 extends 하고 있는데 이 FluentR2dbcOperations 를 사용하면 QueryDSL 을 사용하는 것처럼 체이닝을 통한 쿼리 수행이 가능합니다.<br/>
+
 <br/>
 
 
@@ -158,19 +160,95 @@ Update 쿼리는 아래와 같은 방식으로 체이닝을 거칠 수 있습니
 
 #### inTable 쿼리
 
+inTable() 메서드에는 query 를 실행할 타겟 테이블의 이름을 전달해줘야 합니다. String, SqlIdentifer 형태로 전달 가능하며, inTable() 메서드가 제공되지 않을 경우 update() 메서드 내부 정의에 따라 domainType 의 class 명 또는 @Table 애노테이션을 통해서 table 이름이 적용됩니다.<br/>
+
+
+
 #### matching 쿼리
+
+Update 쿼리의 where 문에 해당합니다. `Query` 객체를 전달해서 Query 의 where 에 해당하는 조건식을 설정합니다. matching 을 생략할 경우 테이블 내의 모든 로우에 대한 update 를 하겠다는 의미가 됩니다.<br/>
+
+
 
 #### apply 쿼리
 
+apply() 메서드는 실제 update 작업을 수행하는 메서드입니다. insert() 와는 다르게 Entity 전체를 전달하는 것이 아니라 Update 객체를 인자값으로 전달합니다. Update 객체는 내부에 Map 타입의 필드가 있는데 이 Map 은 \<SqlIdentifier : Value\> 형식의 데이터를 처리합니다.<br/>
+
+리턴 값으로 쿼리의 수행 결과로 영향을 받는 row 의 수를 리턴합니다.<br/>
+
+
+
 #### 내부 정의
 
+ReactiveUpdateOperation 의 소스코드를 보면 아래와 같이 되어 있습니다. ReactiveUpdateOperation 의 진입점은 update() 메서드로 진입 가능하며, ReactiveUpdateOperation interface 내에서는 TerminatingUpdate, UpdateWithQuery, UpdateWithTable 타입을 통해서 각자 체이닝이 가능하도록 되어 있습니다.
+
+![](./img/r2dbc-entity-template-r2dbc-entity-operations/reactive-update-operation-1.png)
+
+<br/>
+
+
+
 #### e.g.
+
+```java
+```
+
+<br/>
 
 
 
 ### delete 쿼리 (ReactiveDeleteOperation)
 
+Delete 쿼리는 아래와 같은 방식으로 체이닝을 거칠 수 있습니다.
 
+![](./img/r2dbc-entity-template-r2dbc-entity-operations/reactive-delete-operation-2.png)
+
+- delete → from → matching → all
+- delete → from → all
+- delete → matching → all
+- delete → all
+
+<br/>
+
+
+
+#### from 쿼리
+
+from() 메서드에는 query 를 실행할 타겟 테이블의 이름을 전달해줘야 합니다. String, SqlIdentifer 형태로 전달 가능하며, from() 메서드가 제공되지 않을 경우 delete() 메서드 내부 정의에 따라 domainType 의 class 명 또는 @Table 애노테이션을 통해서 table 이름이 적용됩니다.<br/>
+
+
+
+#### matching 쿼리
+
+Delete 쿼리의 where 문에 해당합니다. `Query` 객체를 전달해서 Query 의 where 에 해당하는 조건식을 설정합니다. matching 을 생략할 경우 테이블 내의 모든 로우에 대한 delete 를 하겠다는 의미가 됩니다.<br/>
+
+
+
+#### all 쿼리
+
+all() 메서드는 실제 delete 작업을 수행하는 메서드입니다.<br/>
+
+리턴 값으로 delete 쿼리의 수행 결과로 영향을 받는 row 의 수를 리턴합니다.<br/>
+
+
+
+#### 내부 정의
+
+ReactiveUpdateOperation 의 소스코드를 보면 아래와 같이 되어 있습니다. ReactiveUpdateOperation 의 진입점은 update() 메서드로 진입 가능하며, ReactiveUpdateOperation interface 내에서는 TerminatingUpdate, UpdateWithQuery, UpdateWithTable 타입을 통해서 각자 체이닝이 가능하도록 되어 있습니다.
+
+![](./img/r2dbc-entity-template-r2dbc-entity-operations/reactive-delete-operation-1.png)
+
+<br/>
+
+
+
+#### e.g.
+
+```java
+
+```
+
+<br/>
 
 ## R2dbcEntityOperations
 
