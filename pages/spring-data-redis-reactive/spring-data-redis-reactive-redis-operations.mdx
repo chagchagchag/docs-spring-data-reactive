@@ -120,11 +120,152 @@ ReactiveRedisTemplate 클래스 내에는 여러 종류의 RedisOperations 타�
 
 
 
-## 여러가지 종류의 ReactiveOperations
+## 여러가지 종류의 ReactiveRedisOperations
+
+ReactiveRedisOperations 는 interface 이며 대표적인 구체클래스는 ReactiveRedisTemplate 입니다. ReactiveRedisTemplate 은 위에서 살펴봤습니다. ReactiveRedisTemplate 의 추상타입인 ReactiveRedisOperations interface 에서는 다양한 메서드를 제공합니다.
+
+- execute (ReactiveRedisCallback\<T\> action) : Flux \<T\>
+- execute (RedisScript\<T\>, ... ) : Flux \<T\>
+  - RedisScript 를 실행하는 메서드
+- executeInSession (ReactiveRedisSessionCallback\<K, V, T\> action) : Flux\<T\>
+- convertAndSend (String destination, V message) : Mono\<Long\>
+
+- pub/sub
+  - convertAndSend (String name, V message) : Mono\<Long\>
+  - listenToChannel (String... channels) : Flux\<? extends ReactiveSubscription.Message\<String, V\>\>
+
+<br/>
+
+
+
+ReactiveRedisOperation 의 구체타입을 접근/반환하는 메서드는 아래와 같습니다. 위의 ReactiveRedisTemplate 의 생성자를 설명하는 섹션에서 살펴봤던 내용입니다.
+
+- opsForValue()
+- opsForList()
+- opsForSet()
+- opsForZSet()
+- opsForHash()
+- opsForStream()
+- opsForHyperLogLog()
+
+<br/>
+
+
+
+Key 관련 연산 역시 제공합니다.
+
+- hasKey (K key) : Mono\<Boolean\>
+  - `EXISTS`
+  - EXISTS 연산을 수행합니다. KEY 가존재하는지를 체크합니다.
+- scan (ScapOptions options) : Flux \<T\> 
+  - `SCAN`
+  - non-blocking 하게 순회할 수 있도록 key 들을 Flux 로 반환하는 메서드입니다.
+- delete (Publisher\<K\> keys) : Mono\<Long\>
+  - `DELETE`
+  - key 들을 삭제하며, 삭제된 Key 의 개수를 Mono\<Long\> 으로 반환합니다.
+- expire (K key, Duration timeout) : Mono\<Boolean\>
+  - `EXPIRE`
+  - TTL 을 부여해서 timeout 이 지나면 expire 되도록 지정합니다.
+- expireAt (K key, Instant expireAt) : Mono\<Boolean\>
+  - `EXPIREAT`
+  - expireAt 에 해당하는 Instant 시간이 되면 expire 되도록 지정합니다.
+- persist (K key) : Mono\<Boolean\>
+  - `PERSIST`
+  - key 에 대해 TTL 이 제거됩니다. PERSIST 연산입니다.
+- getExpire (K key) : Mono\<Duration\>
+  - `PTTL`
+  - key 에 대한 TTL 을 milliseconds 로 반환합니다.
+
+<br/>
+
+
 
 ### ReactiveValueOperations
 
+#### 주요 메서드
+
+- set (K key, V value, Duration timeout) : Mono\<Boolean\>
+  - `SET`
+  - key 대한 value 를 지정합니다.
+- setIfAbsent (K key, V value, Duration timeout) : Mono\<Boolean\>
+  - `SETNX`
+  - key 에 대해 value 가 없는 경우에만 value 를 set 합니다.
+- get (Object key) : Mono\<V\>
+  - `GET`
+  - key 에 대한 value 를 조회합니다.
+- multiGet (Collection\<K\> keys) : Mono\<List\<V\>\>
+  - `MGET`
+  - 여러개의 KEY 를 받아서 각 KEY 에 대한 Value 들을 조회해서 리턴합니다.
+- increment (K key, long delta) : Mono\<Long\>
+  - `INCRBY`
+  - key 에 설정된 value 를 delta 만큼 증가시킵니다.
+- decrement (Key key, long delta) : Mono\<Long\>
+  - `DECRBY`
+  - key 에 설정된 value 를 delta 만큼 감소시킵니다.
+- delete (K key)
+  - `DEL`
+  - key 에 설정된 value 를 삭제합니다.
+
+<br/>
+
+#### e.g. 
+
+```java
+```
+
+<br/>
+
+
+
 ### ReactiveListOperations
+
+#### 주요 메서드
+
+- size (K key) : Mono\<Long\>
+  - `LLEN`
+  - key 에 해당하는 list 의 크기를 반환합니다.
+
+- leftPush (K key, V value) : Mono\<Long\>
+  - `LPUSH` 
+  - key 에 해당하는 list 의 제일 왼쪽에 값을 추가합니다.
+
+- rightPush (K key, V value) : Mono\<Long\>
+  - `RPUSH`
+  - key 에 해당하는 list 의 제일 오른쪽에 값을 추가합니다.
+
+- set (K key, long index, V value) : Mono\<Boolean\>
+  - `LSET`
+  - key 에 해당하는 list 의 특정 index 에 값을 set 합니다.
+
+- remove (K key, long count, Object value) : Mono\<Long\>
+  - `LREM`
+  - key 에 해당하는 list 에서 value 를 count 에 지정한 요소 수 만큼 제거합니다.
+
+- leftPop (K key) , leftPop (K key, long count), leftPop (K key, Duration timeout) : Mono\<V\>
+  - `LPOP`
+  - key 에 해당하는 list 의 제일 왼쪽(헤드)에서 값을 제거한 후 제거된 값을 반환합니다.
+
+- rightPop (K key), rightPop (K key, long count), rightPop (K key, Duration timeout) : Mono\<V\>
+  - `RPOP`
+  - key 에 해당하는 list 의 제일 오른쪽(테일)에서 값을 제거한 후 제거된 값을 반환합니다.
+
+- delete (K key) : Mono\<Boolean\>
+  - `DEL`
+  - key 에 해당하는 list 를 삭제합니다.
+
+
+<br/>
+
+
+
+#### e.g.
+
+```java
+```
+
+<br/>
+
+
 
 ### ReactiveHashOperations
 
