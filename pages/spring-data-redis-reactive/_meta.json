@@ -1,5 +1,9 @@
 {
+    "redis-replication-sentinel-cluster": "Redis Replication,Sentinel, Cluster",
+    "redis-connector": "Redis Connector (Lettuce, Jedis)",
     "redis-data-structures": "레디스 자료구조들",
+    "luttuce-examples": "luttuce 기반 예제 코드들",
     "spring-data-redis-reactive": "Spring Data Redis Reactive",
+    "reactive-operations": "ReactiveOperations",
     "known-cache-strategies": "캐싱전략의 종류"
 }
