@@ -2,6 +2,10 @@
 
 R2dbcEntityTemplate 은 R2dbcEntityOperations 를 implements 하고 있으며, R2dbcEntityOperation 은 기본적으로 필요한 SQL query 들을 메서드로 제공합니다. 그리고 R2dbcEntityOperation 은 FluentR2dbcOperations 를 extends 하고 있는데 이 FluentR2dbcOperations 를 사용하면 QueryDSL 을 사용하는 것처럼 체이닝을 통한 쿼리 수행이 가능합니다.<br/>
 
+
+
+예제코드는 [https://github.com/chagchagchag/example-spring-data-r2dbc-mysql](https://github.com/chagchagchag/example-spring-data-r2dbc-mysql) 에서 확인가능합니다.<br/>
+
 <br/>
 
 
@@ -25,7 +29,7 @@ R2dbcEntityTemplate 은 R2dbcEntityOperations interface 를 implements 합니다
 
 
 
-### insert 쿼리 (ReactiveInsertOperation)
+### insert : (ReactiveInsertOperation)
 
 Insert 쿼리는 아래와 같은 방식으로 체이닝을 거칠수 있습니다.
 
@@ -64,16 +68,70 @@ ReactiveInsertOperation 의 소스코드를 보면 아래와 같이 되어 있�
 
 
 
-#### e.g.
+#### e.g. 단순한 책 데이터 1건 insert
+
+아래는 R2dbcTemplate 을 Bean 으로 설정하는 코드입니다. 자세한 예제는 [example-spring-data-r2dbc-mysql](https://github.com/chagchagchag/example-spring-data-r2dbc-mysql) 을 참고해주세요.
 
 ```java
+@Bean
+public R2dbcEntityTemplate r2dbcEntityTemplate(
+  MySqlConnectionFactory connectionFactory
+){
+return new R2dbcEntityTemplate(connectionFactory);
+}
 ```
 
 <br/>
 
 
 
-### select 쿼리 (ReactiveSelectOperation)
+간단한 Insert 쿼리를 수행하는 코드입니다. 테스트 코드는 아니고 단순 실행문입니다.
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.entity.Book;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+
+@SpringBootTest
+public class BookR2dbcOperationsInsertTest {
+  private static final Logger log = LoggerFactory.getLogger(BookR2dbcOperationsInsertTest.class);
+
+  @Autowired
+  private R2dbcEntityTemplate r2dbcEntityTemplate;
+
+  @DisplayName("INSERT_책_데이터_1개_insert")
+  @Test
+  public void TEST_INSERT_책_데이터_1개_insert(){
+    // given
+    
+    // when
+    
+    // then
+    Book newBook = BookFixtures.newRandomBook("글루코스 혁명", 1L);
+
+    Book inserted = r2dbcEntityTemplate.insert(Book.class)
+        .into("book")
+        .using(newBook)
+        .block();
+
+    log.info("book.name = {}, book.price = {} ", inserted.getName(), inserted.getPrice());
+  }
+  
+}
+```
+
+<br/>
+
+
+
+### select : (ReactiveSelectOperation)
 
 Select 쿼리는 아래와 같은 방식으로 체이닝을 거칠 수 있습니다.
 
@@ -133,17 +191,83 @@ ReactiveSelectOperation 의 소스코드를 보면 아래와 같이 되어 있�
 
 
 
-#### e.g.
+#### e.g. 간단한 select 
+
+아래는 R2dbcTemplate 을 Bean 으로 설정하는 코드입니다. 자세한 예제는 [example-spring-data-r2dbc-mysql](https://github.com/chagchagchag/example-spring-data-r2dbc-mysql) 을 참고해주세요.
 
 ```java
-
+@Bean
+public R2dbcEntityTemplate r2dbcEntityTemplate(
+  MySqlConnectionFactory connectionFactory
+){
+return new R2dbcEntityTemplate(connectionFactory);
+}
 ```
 
 <br/>
 
 
 
-### update 쿼리 (ReactiveUpdateOperation)
+간단한 Select 쿼리를 수행하는 코드입니다. 테스트 코드는 아니고 단순 실행문입니다.
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.entity.Book;
+import io.chagchagchag.example.r2dbc_example.repository.valueobject.BookName;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.relational.core.query.Criteria;
+import org.springframework.data.relational.core.query.Query;
+
+@SpringBootTest
+public class BookR2dbcOperationsSelectTest {
+  private static final Logger log = LoggerFactory.getLogger(BookR2dbcOperationsSelectTest.class);
+
+  @Autowired
+  private R2dbcEntityTemplate r2dbcEntityTemplate;
+
+  @DisplayName("SELECT_단순한_SELECT_쿼리")
+  @Test
+  public void TEST_SELECT_단순한_SELECT_쿼리(){
+    // given
+
+    // when
+
+    // then
+    Criteria equalsBookName = Criteria.where("name").is("글루코스 혁명");
+    Criteria priceGt = Criteria.where("price").greaterThan(1000);
+    Criteria whereCriteria = equalsBookName.and(priceGt);
+
+    Query where = Query.query(whereCriteria).limit(10);
+
+    List<BookName> selected = r2dbcEntityTemplate.select(Book.class)
+        .from("book")
+        .as(BookName.class)
+        .matching(where)
+        .all()
+        .toStream()
+        .collect(Collectors.toList());
+
+    selected.forEach(bookName -> {
+      log.info("book.name = " + bookName);
+    });
+  }
+}
+```
+
+<br/>
+
+
+
+### update : (ReactiveUpdateOperation)
 
 Update 쿼리는 아래와 같은 방식으로 체이닝을 거칠 수 있습니다.
 
@@ -188,16 +312,78 @@ ReactiveUpdateOperation 의 소스코드를 보면 아래와 같이 되어 있�
 
 
 
-#### e.g.
+#### e.g. 간단한 책 데이터 update 
+
+아래는 R2dbcTemplate 을 Bean 으로 설정하는 코드입니다. 자세한 예제는 [example-spring-data-r2dbc-mysql](https://github.com/chagchagchag/example-spring-data-r2dbc-mysql) 을 참고해주세요.
 
 ```java
+@Bean
+public R2dbcEntityTemplate r2dbcEntityTemplate(
+  MySqlConnectionFactory connectionFactory
+){
+return new R2dbcEntityTemplate(connectionFactory);
+}
 ```
 
 <br/>
 
 
 
-### delete 쿼리 (ReactiveDeleteOperation)
+간단한 Update 쿼리를 수행하는 코드입니다. 테스트 코드는 아니고 단순 실행문입니다.
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.entity.Book;
+import java.math.BigDecimal;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.relational.core.query.Criteria;
+import org.springframework.data.relational.core.query.Query;
+import org.springframework.data.relational.core.query.Update;
+
+@SpringBootTest
+public class BookR2dbcOperationsUpdateTest {
+  private static final Logger log = LoggerFactory.getLogger(BookR2dbcOperationsUpdateTest.class);
+
+  @Autowired
+  private R2dbcEntityTemplate r2dbcEntityTemplate;
+
+  @DisplayName("간단한_UPDATE_QUERY")
+  @Test
+  public void TEST_간단한_UPDATE_QUERY(){
+    // given
+
+    // when
+
+    // then
+    Criteria equalsBookName = Criteria.where("name").is("맛도리여행");
+    Criteria priceGt = Criteria.where("price").greaterThanOrEquals(BigDecimal.valueOf(1000));
+    Criteria where = equalsBookName.and(priceGt);
+
+    Update update = Update.update("price", BigDecimal.valueOf(10000));
+
+    r2dbcEntityTemplate.update(Book.class)
+        .inTable("book")
+        .matching(Query.query(where))
+        .apply(update)
+        .doOnNext(affected -> log.info("affected row count = {}", affected))
+        .block();
+  }
+
+}
+```
+
+<br/>
+
+
+
+### delete : (ReactiveDeleteOperation)
 
 Delete 쿼리는 아래와 같은 방식으로 체이닝을 거칠 수 있습니다.
 
@@ -242,13 +428,73 @@ ReactiveUpdateOperation 의 소스코드를 보면 아래와 같이 되어 있�
 
 
 
-#### e.g.
+#### e.g. 간단한 책 데이터 delete
+
+아래는 R2dbcTemplate 을 Bean 으로 설정하는 코드입니다. 자세한 예제는 [example-spring-data-r2dbc-mysql](https://github.com/chagchagchag/example-spring-data-r2dbc-mysql) 을 참고해주세요.
 
 ```java
-
+@Bean
+public R2dbcEntityTemplate r2dbcEntityTemplate(
+  MySqlConnectionFactory connectionFactory
+){
+return new R2dbcEntityTemplate(connectionFactory);
+}
 ```
 
 <br/>
+
+
+
+간단한 Delete 쿼리를 수행하는 코드입니다. 테스트 코드는 아니고 단순 실행문입니다.
+
+```java
+package io.chagchagchag.example.r2dbc_example.book;
+
+import io.chagchagchag.example.r2dbc_example.repository.entity.Book;
+import java.math.BigDecimal;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.relational.core.query.Criteria;
+import org.springframework.data.relational.core.query.Query;
+
+@SpringBootTest
+public class BookR2dbcOperationsDeleteTest {
+  private static final Logger log = LoggerFactory.getLogger(BookR2dbcOperationsDeleteTest.class);
+  
+  @Autowired
+  private R2dbcEntityTemplate r2dbcEntityTemplate;
+  
+  @DisplayName("간단한_DELETE_QUERY")
+  @Test
+  public void TEST_간단한_DELETE_QUERY(){
+    // given
+
+    // when
+    
+    // then
+    Criteria equalsBookName = Criteria.where("name").is("맛도리여행");
+    Criteria priceGt = Criteria.where("price").greaterThanOrEquals(BigDecimal.valueOf(1000));
+    Criteria where = equalsBookName.and(priceGt);
+
+    r2dbcEntityTemplate.delete(Book.class)
+        .from("book")
+        .matching(Query.query(where))
+        .all()
+        .doOnNext(affected -> log.info("deleted row count = {}", affected))
+        .block();
+  }
+  
+}
+```
+
+<br/>
+
+
 
 ## R2dbcEntityOperations
 
