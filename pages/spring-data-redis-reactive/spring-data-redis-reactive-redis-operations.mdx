@@ -6,6 +6,8 @@
 
 ReactieRedisConnectionFactory, ReactiveRedisTemplate 설정을 하는 코드입니다.
 
+### JdkSerializationRedisSerializer 
+
 ```java
 package io.chagchagchag.example.example_reactive_redis.config;
 
@@ -54,6 +56,24 @@ public class ReactiveRedisConfig {
 
     return new ReactiveRedisTemplate<>(reactiveRedisConnectionFactory, serializationContext);
   }
+    
+  @Bean(name = "bookSortedSetRedisTemplate")
+  @ConditionalOnBean(ReactiveRedisConnectionFactory.class)
+  public ReactiveRedisTemplate<String, String> bookSortedSetRedisTemplate(
+      ReactiveRedisConnectionFactory reactiveRedisConnectionFactory
+  ){
+    StringRedisSerializer stringSerializer = new StringRedisSerializer();
+    Jackson2JsonRedisSerializer valueSerializer = new Jackson2JsonRedisSerializer<>(String.class);
+
+    RedisSerializationContext<String, String> serializationContext =
+        RedisSerializationContext
+            .<String, String>newSerializationContext()
+            .key(stringSerializer).value(valueSerializer)
+            .hashKey(stringSerializer).hashValue(valueSerializer)
+            .build();
+
+    return new ReactiveRedisTemplate<>(reactiveRedisConnectionFactory, serializationContext);
+  }
 
   @Bean(name = "reactiveStringRedisTemplate")
   @ConditionalOnBean(ReactiveRedisConnectionFactory.class)
@@ -66,6 +86,8 @@ public class ReactiveRedisConfig {
 ```
 
 R2dbcEntityTemplate, ReactiveMongoTemplate 을 선언하는 코드에서 봐왔듯  ReactiveRedisTemplate 역시 ConnectionFactory 와 Serializer 또는 Converter 를 인자로 받는 것이 일반적인 코딩 관례입니다.<br/>
+
+
 
 아래는 각각 선언한 RedisTemplate 들에 대한 설명입니다.<br/>
 
@@ -81,6 +103,12 @@ R2dbcEntityTemplate, ReactiveMongoTemplate 을 선언하는 코드에서 봐왔�
 **reactiveStringRedisTemplate**
 
 - key, value 에 대해서 String 형식만 지정할 수 있는 RedisTemplate 을 Bean 으로 등록했습니다.
+
+<br/>
+
+**bookSortedSetRedisTemplate**
+
+- Jackson2JsonRedisSerializer 을 Value 의 Serializer 로 사용하는 별도의 Template 을 생성했습니다.
 
 <br/>
 
@@ -211,7 +239,60 @@ Key 관련 연산 역시 제공합니다.
 #### e.g. 
 
 ```java
+package io.chagchagchag.example.example_reactive_redis.redis_operations;
+
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
+
+@SpringBootTest
+public class RedisOperationsTest {
+  private static final Logger log = LoggerFactory.getLogger(RedisOperationsTest.class);
+
+  @Autowired
+  private ReactiveStringRedisTemplate reactiveStringRedisTemplate;
+
+  @DisplayName("간단한_ReactiveValueOperations_를_돌려봐요")
+  @Test
+  public void TEST_간단한_ReactiveValueOperations_를_돌려봐요(){
+    // given
+
+    // when
+
+    // then
+    ReactiveValueOperations<String, String> valueOperations = reactiveStringRedisTemplate.opsForValue();
+    var bookNameWithIdKey = "book:1:name";
+    var bookPriceWithIdKey = "book:1:price";
+
+    Long result = valueOperations.set(bookNameWithIdKey, "바람과 함께 사라지다")
+        .then(valueOperations.set(bookPriceWithIdKey, "13000"))
+        .then(valueOperations.setIfAbsent(bookNameWithIdKey, "undefined"))
+        .doOnNext(value -> log.info("onNext :: {}", value))
+        .thenMany(valueOperations.multiGet(List.of(bookNameWithIdKey, bookPriceWithIdKey)))
+        .doOnNext(value -> log.info("onNext :: {}", value))
+        .then(valueOperations.increment(bookPriceWithIdKey, 1000))
+        .doOnNext(value -> log.info("onNext :: {}", value))
+        .block();
+
+    log.info("result = {}", result);
+  }
+
+}
 ```
+
+<br/>
+
+
+
+출력결과
+
+![](./img/spring-data-redis-reactive-redis-operations/value-operations-result1.png)
 
 <br/>
 
@@ -261,7 +342,64 @@ Key 관련 연산 역시 제공합니다.
 #### e.g.
 
 ```java
+package io.chagchagchag.example.example_reactive_redis.redis_operations;
+
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.ReactiveListOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
+
+@SpringBootTest
+public class RedisOperationsTest {
+  private static final Logger log = LoggerFactory.getLogger(RedisOperationsTest.class);
+
+  @Autowired
+  private ReactiveStringRedisTemplate reactiveStringRedisTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<Object, Object> reactiveRedisTemplate;
+
+  // ...
+  
+  @DisplayName("간단한_ReactiveListOperations_를_돌려봐요")
+  @Test
+  public void TEST_간단한_ReactiveListOperations_를_돌려봐요(){
+    // given
+
+    // when
+
+    // then
+    ReactiveListOperations<Object, Object> listOperations = reactiveRedisTemplate.opsForList();
+    var queueWithId = "QUEUE###1";
+
+    listOperations
+        .leftPush(queueWithId, "33000")
+        .then(listOperations.leftPush(queueWithId, "34000"))
+        .then(listOperations.size(queueWithId))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(listOperations.rightPop(queueWithId))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(listOperations.rightPop(queueWithId))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .block();
+  }
+}
 ```
+
+<br/>
+
+
+
+출력결과
+
+![](./img/spring-data-redis-reactive-redis-operations/list-operations-result1.png)
 
 <br/>
 
@@ -303,7 +441,75 @@ Key 관련 연산 역시 제공합니다.
 #### e.g.
 
 ```java
+package io.chagchagchag.example.example_reactive_redis.redis_operations;
+
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.ReactiveHashOperations;
+import org.springframework.data.redis.core.ReactiveListOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.data.redis.core.ReactiveZSetOperations;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
+
+@SpringBootTest
+public class RedisOperationsTest {
+  private static final Logger log = LoggerFactory.getLogger(RedisOperationsTest.class);
+
+  @Autowired
+  private ReactiveStringRedisTemplate reactiveStringRedisTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<Object, Object> reactiveRedisTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<String, String> bookHashTemplate;
+
+  // ...
+  
+  @DisplayName("간단한_ReactiveHashOperations_를_돌려봐요")
+  @Test
+  public void TEST_간단한_ReactiveHashOperations_를_돌려봐요(){
+    // given
+
+    // when
+
+    // then
+    ReactiveHashOperations<String, Object, Object> hashOperations = bookHashTemplate.opsForHash();
+    var hashWithId = "BOOK###1";
+    var properties = Map.of("name", "바람과 함께 사라지다", "price", "2000");
+
+
+    hashOperations
+        .putAll(hashWithId, properties)
+        .thenMany(hashOperations.values(hashWithId))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(hashOperations.size(hashWithId))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(hashOperations.increment(hashWithId, "price", 100.0))
+        .thenMany(hashOperations.multiGet(hashWithId, List.of("name", "price")))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(hashOperations.remove(hashWithId, "price"))
+        .block();
+  }
+
+}
 ```
+
+<br/>
+
+
+
+출력결과
+
+![](./img/spring-data-redis-reactive-redis-operations/hash-operations-result1.png)
 
 <br/>
 
@@ -340,7 +546,78 @@ Key 관련 연산 역시 제공합니다.
 #### e.g.
 
 ```java
+package io.chagchagchag.example.example_reactive_redis.redis_operations;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.core.DefaultTypedTuple;
+import org.springframework.data.redis.core.ReactiveHashOperations;
+import org.springframework.data.redis.core.ReactiveListOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.data.redis.core.ReactiveZSetOperations;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
+
+@SpringBootTest
+public class RedisOperationsTest {
+  private static final Logger log = LoggerFactory.getLogger(RedisOperationsTest.class);
+
+  // ...
+
+  @Autowired
+  private ReactiveRedisTemplate<String, String> bookSortedSetRedisTemplate;
+    
+  // ...
+  
+  @DisplayName("간단한_ReactiveZSetOperations_를_돌려봐요")
+  @Test
+  public void TEST_간단한_ReactiveZSetOperations_를_돌려봐요(){
+    // given
+
+    // when
+
+    // then
+    var zSetWithId = "BOOK:1";
+    ReactiveZSetOperations<String, String> zSetOperations = bookSortedSetRedisTemplate.opsForZSet();
+    bookSortedSetRedisTemplate.delete(zSetWithId);
+
+    List<TypedTuple<String>> tuples = new ArrayList<>();
+    tuples.add(new DefaultTypedTuple<>("Paramount", 1.0));
+    tuples.add(new DefaultTypedTuple<>("Apple", 1.1));
+    tuples.add(new DefaultTypedTuple<>("Manning", 1.3));
+
+    zSetOperations
+        .addAll(zSetWithId, tuples)
+        .doOnError(err -> log.info("err = {}", err.getMessage()))
+        .then(zSetOperations.remove(zSetWithId, "Paramount"))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(zSetOperations.size(zSetWithId))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .thenMany(zSetOperations.rangeWithScores(zSetWithId, Range.closed(0L, -1L)))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(zSetOperations.rank(zSetWithId, "Manning"))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .block();
+  }
+}
 ```
+
+<br/>
+
+
+
+출력결과
+
+![](./img/spring-data-redis-reactive-redis-operations/zset-operations-result1.png)
 
 <br/>
 
@@ -381,7 +658,98 @@ Key 관련 연산 역시 제공합니다.
 #### e.g.
 
 ```java
+package io.chagchagchag.example.example_reactive_redis.redis_operations;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.stream.StreamOffset;
+import org.springframework.data.redis.connection.stream.StreamReadOptions;
+import org.springframework.data.redis.connection.stream.StreamRecords;
+import org.springframework.data.redis.connection.stream.StringRecord;
+import org.springframework.data.redis.core.DefaultTypedTuple;
+import org.springframework.data.redis.core.ReactiveHashOperations;
+import org.springframework.data.redis.core.ReactiveListOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStreamOperations;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.data.redis.core.ReactiveZSetOperations;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
+
+@SpringBootTest
+public class RedisOperationsTest {
+  private static final Logger log = LoggerFactory.getLogger(RedisOperationsTest.class);
+
+  @Autowired
+  private ReactiveStringRedisTemplate reactiveStringRedisTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<Object, Object> reactiveRedisTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<String, String> bookHashTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<String, String> bookSortedSetRedisTemplate;
+  
+  // ...
+    
+  @DisplayName("간단한_ReactiveStreamOperations_를_돌려봐요")
+  @Test
+  public void TEST_간단한_ReactiveStreamOperations_를_돌려봐요(){
+    // given
+
+    // when
+
+    // then
+    var streamName = "stream:1";
+    ReactiveStreamOperations<String, Object, Object> streamOperations = bookSortedSetRedisTemplate.opsForStream();
+
+    streamOperations
+        .read(StreamReadOptions.empty().block(Duration.ofSeconds(10)).count(2), StreamOffset.latest(streamName))
+        .doOnSubscribe(subscription -> {
+          log.info("subscribe");
+        })
+        .doOnNext(data -> {
+          log.info("data = " + data);
+        })
+        .subscribe(message -> {
+          log.info("message = {}", message);
+        });
+
+    try{
+      Thread.sleep(1000);
+      streamOperations
+          .add(streamName, Map.of("1", "100", "2", "200"))
+          .block();
+    }
+    catch (Exception e){
+      e.printStackTrace();
+    }
+  }
+}
 ```
+
+<br/>
+
+- 참고\) bookSortedSetRedisTemplate 을 사용한 것과 이번 예제는 크게 상관은 없습니다.
+
+<br/>
+
+
+
+출력결과
+
+![](./img/spring-data-redis-reactive-redis-operations/stream-operations-result1.png)
 
 <br/>
 
@@ -408,9 +776,80 @@ Key 관련 연산 역시 제공합니다.
 #### e.g.
 
 ```java
+package io.chagchagchag.example.example_reactive_redis.redis_operations;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.stream.StreamOffset;
+import org.springframework.data.redis.connection.stream.StreamReadOptions;
+import org.springframework.data.redis.connection.stream.StreamRecords;
+import org.springframework.data.redis.connection.stream.StringRecord;
+import org.springframework.data.redis.core.DefaultTypedTuple;
+import org.springframework.data.redis.core.ReactiveHashOperations;
+import org.springframework.data.redis.core.ReactiveHyperLogLogOperations;
+import org.springframework.data.redis.core.ReactiveListOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStreamOperations;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.data.redis.core.ReactiveZSetOperations;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
+
+@SpringBootTest
+public class RedisOperationsTest {
+  private static final Logger log = LoggerFactory.getLogger(RedisOperationsTest.class);
+
+  @Autowired
+  private ReactiveStringRedisTemplate reactiveStringRedisTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<Object, Object> reactiveRedisTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<String, String> bookHashTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<String, String> bookSortedSetRedisTemplate;
+
+  // ...
+  
+  @DisplayName("간단한_ReactiveHyperOperations_를_돌려봐요")
+  @Test
+  public void TEST_간단한_ReactiveHyperOperations_를_돌려봐요(){
+    // given
+
+    // when
+
+    // then
+    ReactiveHyperLogLogOperations<String, String> hyperLogLogOperations = bookSortedSetRedisTemplate.opsForHyperLogLog();
+    var key = "B:5";
+
+    hyperLogLogOperations
+        .add(key, "1","2","3","4","5")
+        .then(hyperLogLogOperations.size(key))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(hyperLogLogOperations.add(key, "1","2","3","4","5","6","7","8","9","10"))
+        .then(hyperLogLogOperations.size(key))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .block();
+  }
+}
 ```
 
 <br/>
 
 
+
+출력결과
+
+![](./img/spring-data-redis-reactive-redis-operations/hyperloglog-operations-result1.png)
 
