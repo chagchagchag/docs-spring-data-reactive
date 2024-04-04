@@ -106,7 +106,7 @@ R2dbcEntityTemplate, ReactiveMongoTemplate 을 선언하는 코드에서 봐왔�
 
 **bookSortedSetRedisTemplate**
 
-- Jackson2JsonRedisSerializer 을 Value 의 Serializer 로 사용하는 별도의 Template 을 생성했습니다.
+- Jackson2JsonRedisSerializer 을 Value 의 Serializer 로 사용하는 별도의 Template 을 Bean 으로 등록했습니다.
 
 <br/>
 
@@ -398,6 +398,123 @@ public class RedisOperationsTest {
 출력결과
 
 ![](./img/spring-data-redis-reactive-redis-operations/list-operations-result1.png)
+
+<br/>
+
+
+
+### ReactiveSetOperations
+
+#### 주요 메서드
+
+-  add(K key, V... values) : Mono\<Long\>
+  - `SADD`
+  - key 에 해당하는 set 에 하나 또는 여러개의 데이터를 add 합니다.
+-  remove(K key, Object... values) : Mono\<Long\>
+  - `SREM`
+  - key 에 해당하는 set 에서 인자로 전달받은 values 에 해당하는 item 들을 삭제합니다.
+-  size(K key) : Mono\<Long\>
+  - `SCARD`
+  - key 에 해당하는 set 의 cardinality(사이즈)를 반환합니다.
+-  isMember
+  - isMember(K key, Object o) : Mono\<Boolean\>
+  - isMember(K key, Object... objects) : Mono\<Map\<Object, Boolean\>\>
+  - `SISMEMBER`
+  - key 에 해당하는 set 에 item 이 포함되는지 체크합니다.
+-  members(K key) : Flux\<V\>
+  - `SMEMBERS`
+  - key 에 해당하는 set 의 모든 item 들을 `Flux<V>` 의 형태로 반환합니다.
+-  delete(K key) : Mono\<Boolean\>
+  - `DEL`
+  - key 에 해당하는 set 을 삭제합니다.
+
+<br/>
+
+
+
+#### e.g.
+
+```java
+package io.chagchagchag.example.example_reactive_redis.redis_operations;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.stream.StreamOffset;
+import org.springframework.data.redis.connection.stream.StreamReadOptions;
+import org.springframework.data.redis.connection.stream.StreamRecords;
+import org.springframework.data.redis.connection.stream.StringRecord;
+import org.springframework.data.redis.core.DefaultTypedTuple;
+import org.springframework.data.redis.core.ReactiveHashOperations;
+import org.springframework.data.redis.core.ReactiveHyperLogLogOperations;
+import org.springframework.data.redis.core.ReactiveListOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveSetOperations;
+import org.springframework.data.redis.core.ReactiveStreamOperations;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.data.redis.core.ReactiveZSetOperations;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
+
+@SpringBootTest
+public class RedisOperationsTest {
+  private static final Logger log = LoggerFactory.getLogger(RedisOperationsTest.class);
+
+  @Autowired
+  private ReactiveStringRedisTemplate reactiveStringRedisTemplate;
+
+  @Autowired
+  private ReactiveRedisTemplate<Object, Object> reactiveRedisTemplate;
+
+  // ... 
+
+  @DisplayName("간단한_ReactiveSetOperations_를_돌려봐요")
+  @Test
+  public void TEST_간단한_ReactiveSetOperations_를_돌려봐요(){
+    // given
+
+    // when
+
+    // then
+    ReactiveSetOperations<Object, Object> setOperations = reactiveRedisTemplate.opsForSet();
+    var setId = "BOOK_PRICES:1";
+
+    setOperations
+        .add(setId, "500")
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(setOperations.add(setId, "1000","2000","3000"))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(setOperations.size(setId))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .thenMany(setOperations.members(setId))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(setOperations.isMember(setId, "1000"))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(setOperations.isMember(setId,"5000"))
+        .doOnNext(value -> log.info("doOnNext = {}", value))
+        .then(setOperations.remove(setId, "1000"))
+        .doOnError(throwable -> throwable.getMessage())
+        .block();
+  }
+
+}
+```
+
+
+
+
+
+출력결과
+
+![](./img/spring-data-redis-reactive-redis-operations/set-operations-result1.png)
 
 <br/>
 
