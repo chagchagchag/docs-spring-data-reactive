@@ -2,6 +2,7 @@
     "mysql-features": "MySQL 특징",
     "jdbc-jpa-vs-r2dbc":"JDBC, JPA 와의 차이점",
     "r2dbc-drivers-r2dbc-spi": "R2DBC 드라이버, R2DBC SPI, Connection 설정",
+    "r2dbc-h2-setting": "R2DBC 에서의 h2 설정",
     "simple-r2dbc-code": "R2DBC 기반 Raw 레벨 코드, Transaction",
     "entity-mysql-type-mapping": "Entity, MySQL 타입 매핑",
     "spring-data-object-mapping-and-creation": "Spring Data Reactive 의 객체생성 방식과 필드 매핑방식",
